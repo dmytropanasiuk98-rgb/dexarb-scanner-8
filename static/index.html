@@ -203,7 +203,11 @@
         </script>
       </div>
 
-      <div style="font-size: 11px; color: #64748b; margin: 10px 0 6px 0;">або швидкий вхід за назвою акаунту:</div>
+      <div style="margin-bottom: 12px;">
+        <button onclick="resetTelegramAuthSession()" style="font-size: 11px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #60a5fa; padding: 4px 10px; border-radius: 6px; cursor: pointer;">🔄 Змінити акаунт Telegram (Вийти з цього профілю)</button>
+      </div>
+
+      <div style="font-size: 11px; color: #64748b; margin: 10px 0 6px 0;">або швидкий вхід за будь-яким юзернеймом:</div>
 
       <div class="field" style="margin-bottom: 14px;">
         <input type="text" id="tgInputUsername" placeholder="@username або Ваше ім'я..." style="width: 100%; box-sizing: border-box; text-align: center; font-size: 14px; padding: 10px;">
@@ -216,7 +220,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=4700"></script>
+  <script src="/static/app.js?v=4800"></script>
 </body>
 
 </html>

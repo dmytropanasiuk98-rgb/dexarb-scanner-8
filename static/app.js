@@ -73,6 +73,15 @@ window.onTelegramAuth = function(user) {
 
 window.logoutTelegramUser = logoutTelegramUser;
 
+window.resetTelegramAuthSession = function() {
+    playTactileClick();
+    const win = window.open("https://oauth.telegram.org/logout", "_blank", "width=550,height=420");
+    setTimeout(() => {
+        if (win && !win.closed) win.close();
+        location.reload();
+    }, 1200);
+};
+
 async function loginTelegramUser(userObj) {
     currentUser = userObj;
     localStorage.setItem("tg_user", JSON.stringify(currentUser));
