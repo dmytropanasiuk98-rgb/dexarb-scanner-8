@@ -33,10 +33,10 @@ function renderTgAuthUI() {
             : `<div class="user-avatar-fallback">${initial}</div>`;
 
         container.innerHTML = `
-            <div class="user-profile-badge" title="Увійшли як ${usernameDisplay}">
+            <div class="user-profile-badge" onclick="openUserCabinet()" style="cursor:pointer;" title="Відкрити Особистий Кабінет (${usernameDisplay})">
                 ${avatarHtml}
                 <span class="user-name">${usernameDisplay}</span>
-                <button class="btn-logout" id="btnTgLogout" onclick="logoutTelegramUser()" title="Вийти з акаунту">🚪</button>
+                <button class="btn-logout" id="btnTgLogout" onclick="event.stopPropagation(); logoutTelegramUser();" title="Вийти з акаунту">🚪</button>
             </div>
         `;
     } else {
@@ -48,6 +48,89 @@ function renderTgAuthUI() {
         `;
     }
 }
+
+window.openUserCabinet = function() {
+    playTactileClick();
+    if (!currentUser) {
+        openTgAuthModal();
+        return;
+    }
+    const modal = $("userCabinetModal");
+    if (modal) {
+        modal.style.display = "flex";
+        renderCabinetData();
+    }
+};
+
+window.closeUserCabinet = function() {
+    playTactileClick();
+    const modal = $("userCabinetModal");
+    if (modal) modal.style.display = "none";
+};
+
+window.switchCabTab = function(tabName) {
+    playTactileClick();
+    ["settings", "pins", "account"].forEach(t => {
+        const tabEl = $(`cabTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const btnEl = $(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (tabEl) tabEl.style.display = (t === tabName) ? "block" : "none";
+        if (btnEl) {
+            if (t === tabName) btnEl.classList.add("active");
+            else btnEl.classList.remove("active");
+        }
+    });
+};
+
+function renderCabinetData() {
+    if (!currentUser) return;
+    const initial = (currentUser.first_name || currentUser.username || 'U')[0].toUpperCase();
+    const avatarHtml = currentUser.photo_url 
+        ? `<img src="${currentUser.photo_url}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid #2AABEE;">`
+        : `<div style="width:36px; height:36px; border-radius:50%; background:#2AABEE; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">${initial}</div>`;
+    
+    if ($("cabAvatarContainer")) $("cabAvatarContainer").innerHTML = avatarHtml;
+    if ($("cabUserName")) $("cabUserName").textContent = currentUser.first_name || currentUser.username || 'Користувач';
+    if ($("cabUserId")) $("cabUserId").textContent = `ID: ${currentUser.user_id}`;
+    if ($("cabTgUsername")) $("cabTgUsername").textContent = currentUser.username ? `@${currentUser.username}` : (currentUser.first_name || '--');
+    
+    if ($("cabMinSpread")) $("cabMinSpread").value = state.minSpread;
+    if ($("cabEntryAlert")) $("cabEntryAlert").value = state.entryAlert !== null ? state.entryAlert : '';
+    if ($("cabExitAlert")) $("cabExitAlert").value = state.exitAlert !== null ? state.exitAlert : '';
+
+    if ($("cabPinCount")) $("cabPinCount").textContent = pinnedItems.length;
+    const pinsList = $("cabPinsList");
+    if (pinsList) {
+        if (pinnedItems.length === 0) {
+            pinsList.innerHTML = `<div style="font-size: 12px; color: #64748b; padding: 10px; text-align: center;">Немає закріплених монет</div>`;
+        } else {
+            pinsList.innerHTML = pinnedItems.map((p, idx) => `
+                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.04); padding:6px 12px; border-radius:6px; font-size:12px;">
+                    <div><b style="color:#ffffff;">${p.symbol}</b> <span style="color:#94a3b8; font-size:11px;">(${p.long_ex || 'Ondo'} ➔ ${p.short_ex || 'RH_Lighter'})</span></div>
+                    <button onclick="togglePin('${p.symbol}', '${p.long_ex}', '${p.short_ex}'); renderCabinetData();" style="background:none; border:none; color:#f6465d; cursor:pointer; font-size:12px;" title="Видалити">✕</button>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+window.saveUserCabinetSettings = function() {
+    playTactileClick();
+    if ($("cabMinSpread")) {
+        const val = parseFloat($("cabMinSpread").value);
+        if (!isNaN(val)) state.minSpread = val;
+    }
+    if ($("cabEntryAlert")) {
+        const val = parseFloat($("cabEntryAlert").value);
+        state.entryAlert = isNaN(val) ? null : val;
+    }
+    if ($("cabExitAlert")) {
+        const val = parseFloat($("cabExitAlert").value);
+        state.exitAlert = isNaN(val) ? null : val;
+    }
+    saveUserSettings();
+    scan();
+    closeUserCabinet();
+};
 
 window.openTgAuthModal = function() {
     playTactileClick();
@@ -139,12 +222,12 @@ async function saveUserSettings() {
 
 function applyUserSettings(s) {
     if (s.pinnedItems) {
-        pinnedItems = new Set(s.pinnedItems);
-        localStorage.setItem("pinnedItems", JSON.stringify(Array.from(pinnedItems)));
+        pinnedItems = Array.isArray(s.pinnedItems) ? s.pinnedItems : [];
+        localStorage.setItem("pinnedItems", JSON.stringify(pinnedItems));
     }
     if (s.enabledExchanges) {
-        enabledExchanges = new Set(s.enabledExchanges);
-        localStorage.setItem("enabledExchanges", JSON.stringify(Array.from(enabledExchanges)));
+        enabledExchanges = Array.isArray(s.enabledExchanges) ? s.enabledExchanges : [];
+        localStorage.setItem("enabledExchanges", JSON.stringify(enabledExchanges));
     }
     if (s.minSpread !== undefined) {
         state.minSpread = s.minSpread;
@@ -1020,7 +1103,7 @@ function getExchangeTradeUrl(ex, symbol) {
         return `https://app.lighter.xyz/trade/${s}`;
     } else if (ex === "Variational") {
         const vSym = (s === "SPY") ? "US500" : (s === "QQQ" ? "US100" : s);
-        return `https://omni.variational.io/perps/${vSym}`;
+        return `https://omni.variational.io/perpetual/${vSym}`;
     } else if (ex === "Extended" || ex === "EXTENDET") {
         return `https://app.extended.exchange/trade/${s}-USD`;
     } else if (ex === "RiseX") {

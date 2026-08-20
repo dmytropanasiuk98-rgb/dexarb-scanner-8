@@ -62,7 +62,10 @@ class VariationalClient:
                             if tkr and fr_str is not None:
                                 sym_upper = tkr.upper()
                                 try:
-                                    new_funding[sym_upper] = float(fr_str)
+                                    fr_val = float(fr_str)
+                                    interval_s = item.get("funding_interval_s") or 28800
+                                    annual_apr = fr_val * (86400 / interval_s) * 365
+                                    new_funding[sym_upper] = annual_apr
                                 except ValueError:
                                     pass
                         

@@ -1570,6 +1570,31 @@ select option {
     transform: scale(1.2);
 }
 
+/* User Cabinet Tab Styling */
+.cab-tab-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cab-tab-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.cab-tab-btn.active {
+    background: #3773f5 !important;
+    color: #ffffff !important;
+    border-color: #3773f5 !important;
+    box-shadow: 0 0 10px rgba(55, 115, 245, 0.5);
+}
+
 /* Responsive Mobile Layout (<= 768px) */
 @media (max-width: 768px) {
     html, body {
