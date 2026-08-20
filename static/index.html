@@ -78,8 +78,10 @@
         </div>
       </div>
     </div>
-    <div class="latency">Ping: <span id="lat">0</span>ms <span class="dot" id="dot"></span></div>
-    <div id="tgAuthContainer" class="tg-auth-container"></div>
+    <div class="latency" style="display: flex; align-items: center; gap: 12px;">
+      <div id="muteSignalBtnContainer"></div>
+      <span>Ping: <span id="lat">0</span>ms <span class="dot" id="dot"></span></span>
+    </div>
   </div>
 
   <div class="main-grid">
@@ -143,27 +145,106 @@
     </div>
   </div>
 
-  <div id="modal" class="modal">
-    <div class="modal-content card">
-      <h3>Налаштування сканера ⚙️</h3>
-      <div class="field">
-        <label>Мінімальний спред для списку (%):</label>
-        <input type="number" id="minSpreadInput" value="0.01" step="0.01">
+  <div id="modal" class="modal drawer-modal">
+    <div class="modal-content card settings-drawer">
+      <div class="drawer-header">
+        <h3>Налаштування сканера ⚙️</h3>
+        <button id="closeSettingsX" class="btn-drawer-close" title="Закрити шторку">✕</button>
       </div>
-      <div class="field">
-        <label>Відслідковувати біржі:</label>
-        <div class="checkbox-group">
-          <label><input type="checkbox" id="exOndo" value="Ondo" checked> Ondo Perps</label>
-          <label><input type="checkbox" id="exRHLighter" value="RH_Lighter" checked> Robinhood Lighter</label>
-          <label><input type="checkbox" id="exVariational" value="Variational" checked> Variational Omni</label>
-          <label><input type="checkbox" id="exExtended" value="Extended" checked> Extended DEX</label>
-          <label><input type="checkbox" id="exLighter" value="Lighter" checked> Lighter DEX</label>
-          <label><input type="checkbox" id="exRiseX" value="RiseX" checked> RiseX</label>
-          <label><input type="checkbox" id="exBullet" value="Bullet" checked> Bullet DEX</label>
+      <div class="drawer-body drawer-grid-2col">
+        <!-- Left Column: Filters & Global Alerts -->
+        <div class="drawer-col">
+          <div class="settings-section-title">📊 Фільтрація Списку</div>
+          <div class="field">
+            <label>Мінімальний спред для списку (%):</label>
+            <input type="number" id="minSpreadInput" value="0.01" step="0.01">
+          </div>
+          <div class="field">
+            <label>Мінімальний річний фандінг (Net APR %):</label>
+            <input type="number" id="minFundingInput" value="0" step="0.1" placeholder="0">
+          </div>
+
+          <div class="settings-divider"></div>
+          <div class="settings-section-title">🔔 Загальні Звукові Алерти</div>
+
+          <div class="field-toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-title">🔔 Алерт за Спредом</span>
+              <span class="toggle-desc">Сигнал якщо спред >= порогу</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="globalSpreadAlertToggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="field-toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-title">⚡ Алерт за Фандінгом</span>
+              <span class="toggle-desc">Сигнал якщо Net APR >= порогу</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="globalFundingAlertToggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <div class="field-toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-title">🔗 Комбінований (Спред + Фандінг)</span>
+              <span class="toggle-desc">Сигнал ТІЛЬКИ якщо досягнуті ОБИДВА пороги</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="globalCombinedAlertToggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Right Column: Exchanges to Track (with Icons) -->
+        <div class="drawer-col">
+          <div class="settings-section-title">🏛️ Відслідковувати біржі</div>
+          <div class="exchanges-cards-grid">
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exOndo" value="Ondo" checked>
+              <img src="/static/images/ondo.png" class="ex-card-icon">
+              <span class="ex-card-name">Ondo Perps</span>
+            </label>
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exRHLighter" value="RH_Lighter" checked>
+              <img src="/static/images/lighter.png" class="ex-card-icon">
+              <span class="ex-card-name">Robinhood Lighter</span>
+            </label>
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exVariational" value="Variational" checked>
+              <img src="/static/images/variational.jpg" class="ex-card-icon">
+              <span class="ex-card-name">Variational Omni</span>
+            </label>
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exExtended" value="Extended" checked>
+              <img src="/static/images/extended.png" class="ex-card-icon">
+              <span class="ex-card-name">Extended DEX</span>
+            </label>
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exLighter" value="Lighter" checked>
+              <img src="/static/images/lighter_dex.png" class="ex-card-icon">
+              <span class="ex-card-name">Lighter DEX</span>
+            </label>
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exRiseX" value="RiseX" checked>
+              <img src="/static/images/risex.png" class="ex-card-icon">
+              <span class="ex-card-name">RiseX</span>
+            </label>
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exBullet" value="Bullet" checked>
+              <img src="/static/images/bullet.png" class="ex-card-icon">
+              <span class="ex-card-name">Bullet DEX</span>
+            </label>
+          </div>
         </div>
       </div>
-      <div class="modal-buttons">
-        <button id="saveSettings" class="btn-primary">OK</button>
+      <div class="modal-buttons drawer-footer">
+        <button id="saveSettings" class="btn-primary">Зберегти ⚙️</button>
         <button id="closeSettings" class="btn-secondary">Закрити</button>
       </div>
     </div>
@@ -171,7 +252,7 @@
 
   <div id="alertModal" class="modal">
     <div class="modal-content card">
-      <h3>Звукові сповіщення 🔔</h3>
+      <h3 id="alertModalTitle">Звукове сповіщення 🔔</h3>
       <div class="field">
         <label>Грати звук, якщо ENTRY (IN) >= %:</label>
         <input type="number" id="entryAlertLevel" placeholder="Вимкнено" step="0.01">
@@ -187,99 +268,7 @@
     </div>
   </div>
 
-  <div id="tgAuthModal" class="modal">
-    <div class="modal-content card" style="max-width: 380px; text-align: center;">
-      <div style="font-size: 36px; margin-bottom: 8px;">✈️</div>
-      <h3 style="margin: 0 0 6px 0; font-size: 18px;">Авторизація через Telegram</h3>
-      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">Офіційний вхід за 1 клік через бота <b>@my_dexarb_bot</b>:</p>
-      
-      <div id="telegramWidgetContainer" style="margin: 14px 0; display: flex; justify-content: center; min-height: 44px;">
-        <script async src="https://telegram.org/js/telegram-widget.js?22"
-          data-telegram-login="my_dexarb_bot"
-          data-size="large"
-          data-radius="10"
-          data-onauth="onTelegramAuth(user)"
-          data-request-access="write">
-        </script>
-      </div>
-
-      <div style="margin-bottom: 12px;">
-        <button onclick="resetTelegramAuthSession()" style="font-size: 11px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #60a5fa; padding: 4px 10px; border-radius: 6px; cursor: pointer;">🔄 Змінити акаунт Telegram (Вийти з цього профілю)</button>
-      </div>
-
-      <div style="font-size: 11px; color: #64748b; margin: 10px 0 6px 0;">або швидкий вхід за будь-яким юзернеймом:</div>
-
-      <div class="field" style="margin-bottom: 14px;">
-        <input type="text" id="tgInputUsername" placeholder="@username або Ваше ім'я..." style="width: 100%; box-sizing: border-box; text-align: center; font-size: 14px; padding: 10px;">
-      </div>
-
-      <div class="modal-buttons" style="display: flex; gap: 8px; justify-content: center;">
-        <button id="tgSubmitAuth" class="btn-primary" style="flex: 1; padding: 10px; background: #2AABEE; border-color: #2AABEE;">Увійти ✈️</button>
-        <button id="tgCloseAuth" class="btn-secondary" style="padding: 10px;">Скасувати</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- User Cabinet Modal -->
-  <div id="userCabinetModal" class="modal">
-    <div class="modal-content card" style="max-width: 480px; text-align: left; padding: 24px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <div id="cabAvatarContainer"></div>
-          <div>
-            <h3 id="cabUserName" style="margin: 0; font-size: 16px; color: #ffffff;">Кабінет Користувача</h3>
-            <span id="cabUserId" style="font-size: 11px; color: #60a5fa;">ID: --</span>
-          </div>
-        </div>
-        <button id="cabCloseBtn" onclick="closeUserCabinet()" class="btn-secondary" style="padding: 4px 10px; font-size: 12px;">✕</button>
-      </div>
-
-      <div class="cab-tabs" style="display: flex; gap: 6px; margin-bottom: 16px;">
-        <button class="cab-tab-btn active" id="tabBtnSettings" onclick="switchCabTab('settings')">⚙️ Налаштування</button>
-        <button class="cab-tab-btn" id="tabBtnPins" onclick="switchCabTab('pins')">📌 Закріплені (<span id="cabPinCount">0</span>)</button>
-        <button class="cab-tab-btn" id="tabBtnAccount" onclick="switchCabTab('account')">👤 Акаунт</button>
-      </div>
-
-      <!-- Tab 1: Settings -->
-      <div id="cabTabSettings" class="cab-tab-content">
-        <div class="field" style="margin-bottom: 12px;">
-          <label style="font-size: 12px; color: #94a3b8;">Мінімальний спред сканера (%):</label>
-          <input type="number" id="cabMinSpread" step="0.01" style="width: 100%; box-sizing: border-box; padding: 8px;">
-        </div>
-        <div class="field" style="margin-bottom: 12px;">
-          <label style="font-size: 12px; color: #94a3b8;">Алерт ENTRY (IN) >= %:</label>
-          <input type="number" id="cabEntryAlert" step="0.01" placeholder="Вимкнено" style="width: 100%; box-sizing: border-box; padding: 8px;">
-        </div>
-        <div class="field" style="margin-bottom: 12px;">
-          <label style="font-size: 12px; color: #94a3b8;">Алерт EXIT (OUT) >= %:</label>
-          <input type="number" id="cabExitAlert" step="0.01" placeholder="Вимкнено" style="width: 100%; box-sizing: border-box; padding: 8px;">
-        </div>
-      </div>
-
-      <!-- Tab 2: Pinned Items -->
-      <div id="cabTabPins" class="cab-tab-content" style="display: none;">
-        <div id="cabPinsList" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
-          <div style="font-size: 12px; color: #64748b;">Немає закріплених монет</div>
-        </div>
-      </div>
-
-      <!-- Tab 3: Account -->
-      <div id="cabTabAccount" class="cab-tab-content" style="display: none;">
-        <div style="font-size: 12px; color: #94a3b8; line-height: 1.8; margin-bottom: 16px; background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
-          <div><b>Статус:</b> <span style="color:#2ebd85;">🟢 Авторизований</span></div>
-          <div><b>Telegram:</b> <span id="cabTgUsername" style="color:#60a5fa;">--</span></div>
-          <div><b>Сесія:</b> <span style="color:#2ebd85;">Синхронізована з БД</span></div>
-        </div>
-        <button onclick="logoutTelegramUser(); closeUserCabinet();" class="btn-secondary" style="width: 100%; padding: 10px; color: #f6465d; border-color: rgba(246, 70, 93, 0.4);">🚪 Вийти з акаунту</button>
-      </div>
-
-      <div style="margin-top: 16px; text-align: right;">
-        <button onclick="saveUserCabinetSettings()" class="btn-primary" style="padding: 8px 18px;">Зберегти зміни 💾</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="/static/app.js?v=5100"></script>
+  <script src="/static/app.js?v=22000"></script>
 </body>
 
 </html>

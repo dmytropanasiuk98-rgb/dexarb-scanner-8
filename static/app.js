@@ -10,7 +10,11 @@ let state = {
     longEx: qLong || "Ondo",
     shortEx: qShort || "RH_Lighter",
     symbol: qSymbol ? qSymbol.toUpperCase() : "BTC",
-    minSpread: 0.01,
+    minSpread: parseFloat(localStorage.getItem("minSpread")) || 0.01,
+    minFunding: parseFloat(localStorage.getItem("minFunding")) || 0,
+    globalSpreadAlert: localStorage.getItem("globalSpreadAlert") === "true",
+    globalFundingAlert: localStorage.getItem("globalFundingAlert") === "true",
+    globalCombinedAlert: localStorage.getItem("globalCombinedAlert") === "true",
     isRunning: true,
     entryAlert: null,
     exitAlert: null,
@@ -748,6 +752,106 @@ function updateSortHeaderUI() {
 }
 
 let expandedSymbols = new Set();
+let activeSignalsMap = {}; // symbol -> { symbol, type: 'ENTRY'|'EXIT', spread }
+let symbolAlerts = JSON.parse(localStorage.getItem("symbolAlerts") || "{}");
+let alertAudioInterval = null;
+let lastScanItems = [];
+
+function updateAlertBellUI() {
+    const bellBtn = $("openAlerts");
+    if (!bellBtn) return;
+    const cfg = symbolAlerts[state.symbol];
+    if (cfg && (cfg.entry !== null || cfg.exit !== null)) {
+        bellBtn.style.color = "#f59e0b";
+        bellBtn.style.textShadow = "0 0 10px rgba(245, 158, 11, 0.8)";
+        bellBtn.title = `Активний алерт для ${state.symbol}: IN >= ${cfg.entry !== null ? cfg.entry : '--'}%`;
+    } else {
+        bellBtn.style.color = "";
+        bellBtn.style.textShadow = "";
+        bellBtn.title = `Налаштувати звуковий алерт для ${state.symbol}`;
+    }
+}
+
+function startContinuousAlertAudio() {
+    if (alertAudioInterval) return;
+    playAlertSound();
+    alertAudioInterval = setInterval(() => {
+        if (Object.keys(activeSignalsMap).length > 0) {
+            playAlertSound();
+        } else {
+            stopContinuousAlertAudio();
+        }
+    }, 1800);
+}
+
+function stopContinuousAlertAudio() {
+    if (alertAudioInterval) {
+        clearInterval(alertAudioInterval);
+        alertAudioInterval = null;
+    }
+}
+
+window.muteActiveSignal = function(symToMute = null) {
+    playTactileClick();
+    if (symToMute && typeof symToMute === 'string') {
+        delete symbolAlerts[symToMute];
+        delete activeSignalsMap[symToMute];
+    } else {
+        Object.keys(activeSignalsMap).forEach(sym => {
+            delete symbolAlerts[sym];
+        });
+        activeSignalsMap = {};
+    }
+    localStorage.setItem("symbolAlerts", JSON.stringify(symbolAlerts));
+
+    // Disable Global Alert Toggles upon muting signals
+    state.globalSpreadAlert = false;
+    state.globalFundingAlert = false;
+    state.globalCombinedAlert = false;
+    localStorage.setItem("globalSpreadAlert", "false");
+    localStorage.setItem("globalFundingAlert", "false");
+    localStorage.setItem("globalCombinedAlert", "false");
+
+    if ($("globalSpreadAlertToggle")) $("globalSpreadAlertToggle").checked = false;
+    if ($("globalFundingAlertToggle")) $("globalFundingAlertToggle").checked = false;
+    if ($("globalCombinedAlertToggle")) $("globalCombinedAlertToggle").checked = false;
+    
+    if (Object.keys(activeSignalsMap).length === 0) {
+        stopContinuousAlertAudio();
+    }
+    renderMuteSignalUI();
+    updateAlertBellUI();
+    renderScanItems(lastScanItems);
+};
+
+function renderMuteSignalUI() {
+    const container = $("muteSignalBtnContainer");
+    if (!container) return;
+    const activeKeys = Object.keys(activeSignalsMap);
+    if (activeKeys.length === 1) {
+        const sym = activeKeys[0];
+        container.innerHTML = `
+            <button class="btn-mute-signal" onclick="muteActiveSignal('${sym}')" title="Зупинити сигнал для ${sym} (або натисніть Пробіл)">
+                🔕 ЗУПИНИТИ СИГНАЛ (${sym})
+            </button>
+        `;
+    } else if (activeKeys.length > 1) {
+        container.innerHTML = `
+            <button class="btn-mute-signal" onclick="muteActiveSignal()" title="Зупинити всі ${activeKeys.length} активні сигнали (${activeKeys.join(', ')}) (або натисніть Пробіл)">
+                🔕 ЗУПИНИТИ ВСІ СИГНАЛИ (${activeKeys.length})
+            </button>
+        `;
+    } else {
+        container.innerHTML = '';
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && activeSignal && e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+        muteActiveSignal();
+    }
+});
 
 window.toggleVariations = (sym, event) => {
     if (event) event.stopPropagation();
@@ -784,17 +888,30 @@ function renderScanItems(rawItems) {
             return {
                 symbol: sym,
                 long_ex: pInfo.long_ex || state.longEx || "Ondo",
-                short_ex: pInfo.short_ex || state.shortEx || "RH_Lighter",
-                entry_pct: 0.0,
-                long_funding: 0.0,
-                short_funding: 0.0,
                 net_funding: 0.0,
                 is_missing: true
             };
         }
     });
 
+    items = items.filter(it => {
+        const isPinned = pinnedSymbols.includes(it.symbol);
+        const isSignaling = !!activeSignalsMap[it.symbol];
+        if (isPinned || isSignaling) return true;
+
+        const sprPass = (it.entry_pct !== undefined) ? (it.entry_pct >= state.minSpread) : true;
+        const netFrVal = (it.net_funding !== undefined) ? it.net_funding : ((it.short_funding || 0) - (it.long_funding || 0));
+        const fundPass = (state.minFunding === 0) || (netFrVal >= state.minFunding);
+
+        return sprPass && fundPass;
+    });
+
     items.sort((a, b) => {
+        const aSignaling = !!activeSignalsMap[a.symbol];
+        const bSignaling = !!activeSignalsMap[b.symbol];
+        if (aSignaling && !bSignaling) return -1;
+        if (!aSignaling && bSignaling) return 1;
+
         const aPinned = pinnedSymbols.includes(a.symbol);
         const bPinned = pinnedSymbols.includes(b.symbol);
         if (aPinned && !bPinned) return -1;
@@ -816,9 +933,12 @@ function renderScanItems(rawItems) {
         const tr = document.createElement("tr");
         const isPinned = pinnedItems.some(p => p.symbol === it.symbol);
         const isExpanded = expandedSymbols.has(it.symbol);
+        const isActiveSignalRow = !!activeSignalsMap[it.symbol];
         const isLastPinned = isPinned && (idx === items.length - 1 || !pinnedItems.some(p => p.symbol === items[idx + 1].symbol));
         
-        if (isPinned) {
+        if (isActiveSignalRow) {
+            tr.classList.add("active-signal-pulse");
+        } else if (isPinned) {
             tr.classList.add("pinned-row");
         }
 
@@ -963,6 +1083,7 @@ window.selectSymbol = (sym, longEx, shortEx) => {
         state.shortEx = shortEx;
     }
     updateTradeButtons();
+    updateAlertBellUI();
     updateDashboard();
 };
 
@@ -985,10 +1106,73 @@ async function scan() {
     try {
         const exParam = (enabledExchanges && enabledExchanges.length >= 2) ? enabledExchanges.join(",") : "Ondo,RH_Lighter,Variational";
         const pinParam = JSON.stringify(pinnedItems);
-        const r = await fetch(`/api/scan_top?long_ex=${encodeURIComponent(state.longEx)}&short_ex=${encodeURIComponent(state.shortEx)}&exchanges=${encodeURIComponent(exParam)}&min_spread=${state.minSpread}&pinned_pairs=${encodeURIComponent(pinParam)}`);
+        const r = await fetch(`/api/scan_top?long_ex=${encodeURIComponent(state.longEx)}&short_ex=${encodeURIComponent(state.shortEx)}&exchanges=${encodeURIComponent(exParam)}&min_spread=${state.minSpread}&min_funding=${state.minFunding}&pinned_pairs=${encodeURIComponent(pinParam)}`);
         const data = await r.json();
         if (data.ok && data.items) {
             lastScanItems = data.items;
+
+            // Alert signal auto-detection (PER SYMBOL + GLOBAL ALERTS)
+            let newPinAdded = false;
+            lastScanItems.forEach(it => {
+                const spr = it.entry_pct;
+                const netFrVal = (it.net_funding !== undefined) ? it.net_funding : ((it.short_funding || 0) - (it.long_funding || 0));
+                let triggeredType = null;
+
+                // 1. Per-symbol Alert
+                const cfg = symbolAlerts[it.symbol];
+                if (cfg) {
+                    if (cfg.entry !== null && cfg.entry !== undefined && spr >= cfg.entry) {
+                        triggeredType = 'ENTRY';
+                    } else if (cfg.exit !== null && cfg.exit !== undefined && it.exit_pct >= cfg.exit) {
+                        triggeredType = 'EXIT';
+                    }
+                }
+
+                // 2. Global Alerts (Spread, Funding, Combined)
+                if (!triggeredType) {
+                    if (state.globalCombinedAlert) {
+                        const sprOk = (state.minSpread > 0) ? (spr >= state.minSpread) : true;
+                        const fundOk = (state.minFunding > 0) ? (netFrVal >= state.minFunding) : true;
+                        if (sprOk && fundOk && (state.minSpread > 0 || state.minFunding > 0)) {
+                            triggeredType = 'COMBINED';
+                        }
+                    } else {
+                        const sprOk = state.globalSpreadAlert && (state.minSpread > 0) && (spr >= state.minSpread);
+                        const fundOk = state.globalFundingAlert && (state.minFunding > 0) && (netFrVal >= state.minFunding);
+                        if (sprOk || fundOk) {
+                            triggeredType = sprOk ? 'SPREAD' : 'FUNDING';
+                        }
+                    }
+                }
+
+                if (triggeredType) {
+                    if (!activeSignalsMap[it.symbol]) {
+                        activeSignalsMap[it.symbol] = { symbol: it.symbol, type: triggeredType, spread: spr };
+                        // Auto-pin signal coin at top if not already pinned
+                        if (!pinnedItems.some(p => p.symbol === it.symbol)) {
+                            pinnedItems.unshift({
+                                symbol: it.symbol,
+                                long_ex: it.long_ex || state.longEx,
+                                short_ex: it.short_ex || state.shortEx
+                            });
+                            newPinAdded = true;
+                        }
+                    }
+                }
+            });
+
+            if (newPinAdded) {
+                localStorage.setItem("pinnedItems", JSON.stringify(pinnedItems));
+            }
+
+            if (Object.keys(activeSignalsMap).length > 0) {
+                startContinuousAlertAudio();
+                renderMuteSignalUI();
+            } else {
+                stopContinuousAlertAudio();
+                renderMuteSignalUI();
+            }
+
             renderScanItems(lastScanItems);
         }
     } catch (e) {
@@ -1107,7 +1291,7 @@ function getExchangeTradeUrl(ex, symbol) {
     } else if (ex === "Extended" || ex === "EXTENDET") {
         return `https://app.extended.exchange/trade/${s}-USD`;
     } else if (ex === "RiseX") {
-        return `https://www.rise.trade/en/trade/${s}`;
+        return `https://www.rise.trade/en/trade`;
     } else if (ex === "Bullet") {
         const bSym = (s === "SPY") ? "US500" : s;
         return `https://app.bullet.xyz/trade/${bSym}-USD`;
@@ -1286,17 +1470,68 @@ function updateSettingsModalUI() {
     if ($("exRiseX")) $("exRiseX").checked = enabledExchanges.includes("RiseX");
     if ($("exBullet")) $("exBullet").checked = enabledExchanges.includes("Bullet");
     if ($("minSpreadInput")) $("minSpreadInput").value = state.minSpread;
+    if ($("minFundingInput")) $("minFundingInput").value = state.minFunding;
+
+    if ($("globalSpreadAlertToggle")) $("globalSpreadAlertToggle").checked = state.globalSpreadAlert;
+    if ($("globalFundingAlertToggle")) $("globalFundingAlertToggle").checked = state.globalFundingAlert;
+    if ($("globalCombinedAlertToggle")) $("globalCombinedAlertToggle").checked = state.globalCombinedAlert;
 }
 
-if ($("openSettings")) $("openSettings").onclick = () => {
+window.openSettingsDrawer = function() {
+    playTactileClick();
     updateSettingsModalUI();
-    $("modal").style.display = "flex";
+    const modal = $("modal");
+    if (modal) {
+        modal.style.display = "flex";
+        // Trigger reflow for smooth slide-in CSS animation
+        modal.offsetHeight;
+        modal.classList.add("open");
+    }
 };
-if ($("closeSettings")) $("closeSettings").onclick = () => $("modal").style.display = "none";
+
+window.closeSettingsDrawer = function() {
+    playTactileClick();
+    const modal = $("modal");
+    if (modal) {
+        modal.classList.remove("open");
+        setTimeout(() => {
+            if (!modal.classList.contains("open")) {
+                modal.style.display = "none";
+            }
+        }, 350);
+    }
+};
+
+if ($("openSettings")) $("openSettings").onclick = openSettingsDrawer;
+if ($("closeSettings")) $("closeSettings").onclick = closeSettingsDrawer;
+if ($("closeSettingsX")) $("closeSettingsX").onclick = closeSettingsDrawer;
+
+if ($("modal")) {
+    $("modal").onclick = (e) => {
+        if (e.target === $("modal")) {
+            closeSettingsDrawer();
+        }
+    };
+}
+
 if ($("saveSettings")) $("saveSettings").onclick = () => {
     const rawVal = $("minSpreadInput") ? $("minSpreadInput").value.replace(",", ".") : "-100.0";
     const minVal = parseFloat(rawVal);
     state.minSpread = !isNaN(minVal) ? minVal : -100.0;
+    localStorage.setItem("minSpread", state.minSpread);
+
+    const rawFunding = $("minFundingInput") ? $("minFundingInput").value.replace(",", ".") : "0";
+    const minFund = parseFloat(rawFunding);
+    state.minFunding = !isNaN(minFund) ? minFund : 0;
+    localStorage.setItem("minFunding", state.minFunding);
+
+    state.globalSpreadAlert = $("globalSpreadAlertToggle") ? $("globalSpreadAlertToggle").checked : false;
+    state.globalFundingAlert = $("globalFundingAlertToggle") ? $("globalFundingAlertToggle").checked : false;
+    state.globalCombinedAlert = $("globalCombinedAlertToggle") ? $("globalCombinedAlertToggle").checked : false;
+
+    localStorage.setItem("globalSpreadAlert", state.globalSpreadAlert);
+    localStorage.setItem("globalFundingAlert", state.globalFundingAlert);
+    localStorage.setItem("globalCombinedAlert", state.globalCombinedAlert);
     
     const newEx = [];
     if ($("exOndo") && $("exOndo").checked) newEx.push("Ondo");
@@ -1314,7 +1549,7 @@ if ($("saveSettings")) $("saveSettings").onclick = () => {
     }
     localStorage.setItem("enabledExchanges", JSON.stringify(enabledExchanges));
     
-    $("modal").style.display = "none";
+    closeSettingsDrawer();
     scan();
 };
 
@@ -1361,16 +1596,35 @@ if ($("closeHistory")) $("closeHistory").onclick = () => $("historyModal").style
 if ($("refreshHistory")) $("refreshHistory").onclick = () => loadHistory();
 if ($("historySymbolFilter")) $("historySymbolFilter").oninput = () => loadHistory();
 
-// Alerts Modal
-if ($("openAlerts")) $("openAlerts").onclick = () => $("alertModal").style.display = "flex";
+// Alerts Modal (PER SYMBOL)
+if ($("openAlerts")) $("openAlerts").onclick = () => {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const modalTitle = $("alertModalTitle");
+    if (modalTitle) modalTitle.innerHTML = `Звукове сповіщення для <b>${state.symbol}</b> 🔔`;
+    const cfg = symbolAlerts[state.symbol] || {};
+    if ($("entryAlertLevel")) $("entryAlertLevel").value = (cfg.entry !== undefined && cfg.entry !== null) ? cfg.entry : "";
+    if ($("exitAlertLevel")) $("exitAlertLevel").value = (cfg.exit !== undefined && cfg.exit !== null) ? cfg.exit : "";
+    $("alertModal").style.display = "flex";
+};
 if ($("closeAlerts")) $("closeAlerts").onclick = () => $("alertModal").style.display = "none";
 if ($("saveAlerts")) $("saveAlerts").onclick = () => {
-    const entryVal = parseFloat($("entryAlertLevel").value);
-    const exitVal = parseFloat($("exitAlertLevel").value);
-    state.entryAlert = isNaN(entryVal) ? null : entryVal;
-    state.exitAlert = isNaN(exitVal) ? null : exitVal;
+    const entryRaw = $("entryAlertLevel") ? $("entryAlertLevel").value.replace(",", ".") : "";
+    const exitRaw = $("exitAlertLevel") ? $("exitAlertLevel").value.replace(",", ".") : "";
+    const entryVal = entryRaw !== "" ? parseFloat(entryRaw) : null;
+    const exitVal = exitRaw !== "" ? parseFloat(exitRaw) : null;
+
+    const entry = (entryVal !== null && !isNaN(entryVal)) ? entryVal : null;
+    const exit = (exitVal !== null && !isNaN(exitVal)) ? exitVal : null;
+
+    if (entry !== null || exit !== null) {
+        symbolAlerts[state.symbol] = { entry: entry, exit: exit };
+    } else {
+        delete symbolAlerts[state.symbol];
+    }
+    localStorage.setItem("symbolAlerts", JSON.stringify(symbolAlerts));
+    updateAlertBellUI();
     $("alertModal").style.display = "none";
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    scan();
 };
 
 // Start application
@@ -1395,8 +1649,7 @@ const openSettingsBtn = $("openSettings");
 if (openSettingsBtn) {
     openSettingsBtn.onmouseenter = () => playTactileClick();
     openSettingsBtn.onclick = () => {
-        playTactileClick();
-        $("modal").style.display = "flex";
+        openSettingsDrawer();
     };
 }
 

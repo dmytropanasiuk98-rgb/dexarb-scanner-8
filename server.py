@@ -830,6 +830,7 @@ async def api_scan_top(
     long_ex: str = "",
     short_ex: str = "",
     min_spread: str = "-100.0",
+    min_funding: str = "0.0",
     exchanges: str = "",
     pinned_pairs: str = ""
 ):
@@ -837,6 +838,11 @@ async def api_scan_top(
         min_spread_val = float(str(min_spread).replace(",", "."))
     except Exception:
         min_spread_val = -100.0
+
+    try:
+        min_funding_val = float(str(min_funding).replace(",", "."))
+    except Exception:
+        min_funding_val = 0.0
 
     pinned_dict = {}  # symbol -> (long_ex, short_ex)
     if pinned_pairs:
@@ -935,19 +941,24 @@ async def api_scan_top(
                     if l_ex != long_ex or s_ex != short_ex:
                         continue
                 spr = (s_b - l_a) / l_a * 100.0
+                # Filter out scale/currency mismatches (> 15% spread is an anomaly/mismatch)
+                if abs(spr) > 15.0:
+                    continue
+
                 l_fr = await get_funding_rate(l_ex, s)
                 s_fr = await get_funding_rate(s_ex, s)
+                net_fr = s_fr - l_fr
                 var_entry = {
                     "long_ex": l_ex,
                     "short_ex": s_ex,
                     "entry_pct": round(spr, 4),
                     "long_funding": round(l_fr, 4),
                     "short_funding": round(s_fr, 4),
-                    "net_funding": round(s_fr - l_fr, 4)
+                    "net_funding": round(net_fr, 4)
                 }
                 all_vars.append(var_entry)
 
-                if spr >= min_spread_val and spr > best_spr:
+                if spr >= min_spread_val and (min_funding_val == 0.0 or net_fr >= min_funding_val) and spr > best_spr:
                     best_spr = spr
                     best_item = (l_ex, s_ex, spr, l_fr, s_fr)
 

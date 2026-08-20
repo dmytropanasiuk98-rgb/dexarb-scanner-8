@@ -225,7 +225,7 @@ button {
 
 .main-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 375px;
+    grid-template-columns: minmax(0, 1fr) 400px;
     gap: 15px;
     padding: 15px;
     height: calc(100vh - 60px);
@@ -278,29 +278,28 @@ button {
 /* Explicit column widths so headers & sort buttons never overlap */
 .sidebar-content th:nth-child(1),
 .sidebar-content td:nth-child(1) {
-    width: 31% !important;
+    width: 27% !important;
     overflow: visible !important;
 }
 
 .sidebar-content th:nth-child(2),
 .sidebar-content td:nth-child(2) {
-    width: 23% !important;
+    width: 17% !important;
     text-align: center;
     overflow: visible !important;
 }
 
 .sidebar-content th:nth-child(3),
 .sidebar-content td:nth-child(3) {
-    width: 24% !important;
+    width: 36% !important;
     text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow: visible !important;
+    white-space: nowrap !important;
 }
 
 .sidebar-content th:nth-child(4),
 .sidebar-content td:nth-child(4) {
-    width: 22% !important;
+    width: 20% !important;
     text-align: right;
     overflow: visible !important;
 }
@@ -766,7 +765,7 @@ th {
     color: #848e9c;
 }
 
-/* Modal */
+/* Modal & Sliding Drawer Settings Panel */
 .modal {
     position: fixed;
     top: 0;
@@ -778,6 +777,301 @@ th {
     align-items: center;
     justify-content: center;
     z-index: 100;
+}
+
+/* Sliding Drawer Settings Panel (Шторка налаштувань) */
+.drawer-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(8px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(8px) saturate(180%) !important;
+    z-index: 9999 !important;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: stretch !important;
+}
+
+.drawer-modal.open {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.settings-drawer {
+    width: 650px !important;
+    max-width: 95vw !important;
+    height: 100% !important;
+    border-radius: 20px 0 0 20px !important;
+    background: linear-gradient(180deg, #141a29 0%, #0d111a 100%) !important;
+    border-left: 1px solid rgba(55, 115, 245, 0.4) !important;
+    border-top: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(55, 115, 245, 0.25) !important;
+    padding: 24px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.drawer-grid-2col {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 20px !important;
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.drawer-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Exchanges Cards Grid with Icons */
+.exchanges-cards-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ex-checkbox-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+    user-select: none;
+}
+
+.ex-checkbox-card:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(55, 115, 245, 0.45);
+    transform: translateX(2px);
+}
+
+.ex-checkbox-card input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #3773f5;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.ex-card-icon {
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    min-height: 22px !important;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.ex-card-name {
+    flex: 1;
+}
+
+.drawer-modal.open .settings-drawer {
+    transform: translateX(0) !important;
+}
+
+.drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 20px;
+}
+
+.drawer-header h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-drawer-close {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #94a3b8;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-drawer-close:hover {
+    background: rgba(246, 70, 93, 0.25);
+    color: #f6465d;
+    border-color: rgba(246, 70, 93, 0.5);
+    transform: scale(1.15) rotate(90deg);
+}
+
+.drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.drawer-footer {
+    display: flex;
+    gap: 12px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: 20px;
+}
+
+.drawer-footer .btn-primary {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 13px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #3773f5 0%, #2563eb 100%);
+    box-shadow: 0 4px 14px rgba(55, 115, 245, 0.4);
+    transition: all 0.2s ease;
+}
+
+.drawer-footer .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(55, 115, 245, 0.7);
+}
+
+.drawer-footer .btn-secondary {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 13px;
+    border-radius: 10px;
+}
+
+/* Settings Drawer Sections & Toggles */
+.settings-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #60a5fa;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.settings-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 16px 0;
+}
+
+.field-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    transition: all 0.2s ease;
+}
+
+.field-toggle-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(55, 115, 245, 0.4);
+}
+
+.toggle-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.toggle-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.toggle-desc {
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+/* iOS / Cyberpunk Switch Toggle */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+
+input:checked + .slider {
+    background: linear-gradient(135deg, #3773f5 0%, #2563eb 100%);
+    border-color: #60a5fa;
+    box-shadow: 0 0 10px rgba(55, 115, 245, 0.5);
+}
+
+input:checked + .slider:before {
+    transform: translateX(20px);
+}
+
+.slider.round {
+    border-radius: 24px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
 }
 
 .modal-content {
@@ -1312,10 +1606,10 @@ th {
     font-weight: 600;
 }
 
-.sidebar th:nth-child(1), .sidebar td:nth-child(1) { width: 88px; text-align: left; padding-left: 2px; }
-.sidebar th:nth-child(2), .sidebar td:nth-child(2) { width: 68px; text-align: left; }
-.sidebar th:nth-child(3), .sidebar td:nth-child(3) { width: 115px; text-align: left; padding-left: 6px; font-size: 11px; }
-.sidebar th:nth-child(4), .sidebar td:nth-child(4) { width: 74px; text-align: left; padding-left: 4px; font-weight: bold; }
+.sidebar th:nth-child(1), .sidebar td:nth-child(1) { width: 27% !important; text-align: left; padding-left: 2px; }
+.sidebar th:nth-child(2), .sidebar td:nth-child(2) { width: 17% !important; text-align: center; }
+.sidebar th:nth-child(3), .sidebar td:nth-child(3) { width: 36% !important; text-align: center; padding-left: 2px; font-size: 11px; white-space: nowrap !important; }
+.sidebar th:nth-child(4), .sidebar td:nth-child(4) { width: 20% !important; text-align: right; padding-left: 2px; font-weight: bold; }
 
 tr.pinned-row {
     background: rgba(234, 179, 8, 0.07) !important;
@@ -1568,6 +1862,53 @@ select option {
 .btn-logout:hover {
     color: #f6465d;
     transform: scale(1.2);
+}
+
+/* Active Signal Pulse & Highlight Animation */
+@keyframes signalPulseGlow {
+    0% {
+        background: rgba(46, 189, 133, 0.35);
+        box-shadow: inset 0 0 15px rgba(46, 189, 133, 0.6), 0 0 20px rgba(46, 189, 133, 0.5);
+        border-color: rgba(46, 189, 133, 0.9);
+    }
+    50% {
+        background: rgba(46, 189, 133, 0.12);
+        box-shadow: inset 0 0 5px rgba(46, 189, 133, 0.2), 0 0 5px rgba(46, 189, 133, 0.2);
+        border-color: rgba(46, 189, 133, 0.4);
+    }
+    100% {
+        background: rgba(46, 189, 133, 0.35);
+        box-shadow: inset 0 0 15px rgba(46, 189, 133, 0.6), 0 0 20px rgba(46, 189, 133, 0.5);
+        border-color: rgba(46, 189, 133, 0.9);
+    }
+}
+
+.active-signal-pulse {
+    animation: signalPulseGlow 1.2s infinite cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative;
+    z-index: 10;
+    border-radius: 8px;
+}
+
+.btn-mute-signal {
+    background: linear-gradient(135deg, #f6465d 0%, #d92d4b 100%);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(246, 70, 93, 0.6);
+    animation: pulseMuteBtn 1s infinite alternate;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+@keyframes pulseMuteBtn {
+    from { transform: scale(1); box-shadow: 0 0 8px rgba(246, 70, 93, 0.5); }
+    to { transform: scale(1.05); box-shadow: 0 0 18px rgba(246, 70, 93, 0.9); }
 }
 
 /* User Cabinet Tab Styling */

@@ -45,6 +45,7 @@ class ExtendedClient:
                             name = item.get("name", "")
                             if "-" in name:
                                 sym = name.split("-")[0].upper()
+                                sym = sym.replace("_24_5", "").replace("_JPY_1", "")
                                 stats = item.get("marketStats") or item.get("stats") or {}
                                 b_val = stats.get("bidPrice")
                                 a_val = stats.get("askPrice")

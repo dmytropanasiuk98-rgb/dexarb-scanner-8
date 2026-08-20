@@ -115,8 +115,9 @@ class LighterClient:
                             if fr_str:
                                 try:
                                     rate_val = float(fr_str)
-                                    # Convert to Annualized APR %
-                                    apr = (rate_val / 8.0) * 8760.0 * 100.0
+                                    # current_funding_rate is hourly percentage rate (e.g. 0.0012 = 0.0012%/hr)
+                                    # Convert to Annualized APR % = rate_val * 8760
+                                    apr = rate_val * 8760.0
                                     self.funding_rates[sym] = round(apr, 4)
                                 except ValueError:
                                     pass
