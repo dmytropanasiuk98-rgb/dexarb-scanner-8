@@ -17,6 +17,180 @@ let state = {
     lastAlertTime: 0
 };
 
+// Telegram Auth State & Sync
+let currentUser = null;
+
+function renderTgAuthUI() {
+    const container = $("tgAuthContainer");
+    if (!container) return;
+
+    if (currentUser) {
+        const usernameDisplay = currentUser.username ? `@${currentUser.username}` : (currentUser.first_name || 'User');
+        const initial = (currentUser.first_name || currentUser.username || 'U')[0].toUpperCase();
+        
+        const avatarHtml = currentUser.photo_url 
+            ? `<img src="${currentUser.photo_url}" class="user-avatar">`
+            : `<div class="user-avatar-fallback">${initial}</div>`;
+
+        container.innerHTML = `
+            <div class="user-profile-badge" title="Увійшли як ${usernameDisplay}">
+                ${avatarHtml}
+                <span class="user-name">${usernameDisplay}</span>
+                <button class="btn-logout" id="btnTgLogout" onclick="logoutTelegramUser()" title="Вийти з акаунту">🚪</button>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <button class="btn-tg-login" id="btnTgLogin" onclick="openTgAuthModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.25.38-.51 1.07-.78 4.18-1.82 6.97-3.02 8.37-3.61 3.99-1.66 4.82-1.95 5.36-1.96.12 0 .38.03.55.17.14.12.18.28.2.45-.02.07-.02.16-.04.29z"/></svg>
+                <span>Telegram</span>
+            </button>
+        `;
+    }
+}
+
+window.openTgAuthModal = function() {
+    playTactileClick();
+    if ($("tgAuthModal")) {
+        $("tgAuthModal").style.display = "flex";
+        if ($("tgInputUsername")) $("tgInputUsername").focus();
+    }
+};
+
+window.onTelegramAuth = function(user) {
+    if (!user) return;
+    const userObj = {
+        user_id: user.id,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        username: user.username || user.first_name,
+        photo_url: user.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.first_name || 'User')}&background=2AABEE&color=fff`,
+        auth_date: user.auth_date || Math.floor(Date.now() / 1000)
+    };
+    loginTelegramUser(userObj);
+    if ($("tgAuthModal")) $("tgAuthModal").style.display = "none";
+};
+
+window.logoutTelegramUser = logoutTelegramUser;
+
+async function loginTelegramUser(userObj) {
+    currentUser = userObj;
+    localStorage.setItem("tg_user", JSON.stringify(currentUser));
+    renderTgAuthUI();
+
+    try {
+        const r = await fetch('/api/auth/telegram', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(userObj)
+        });
+        const data = await r.json();
+        if (data.ok && data.settings && Object.keys(data.settings).length > 0) {
+            applyUserSettings(data.settings);
+        } else {
+            saveUserSettings();
+        }
+    } catch (e) {
+        console.error("Auth server sync error:", e);
+    }
+}
+
+function logoutTelegramUser() {
+    currentUser = null;
+    localStorage.removeItem("tg_user");
+    renderTgAuthUI();
+}
+
+async function saveUserSettings() {
+    if (!currentUser) return;
+    const settings = {
+        pinnedItems: Array.from(pinnedItems),
+        enabledExchanges: Array.from(enabledExchanges),
+        minSpread: state.minSpread,
+        entryAlert: state.entryAlert,
+        exitAlert: state.exitAlert,
+        longEx: state.longEx,
+        shortEx: state.shortEx,
+        symbol: state.symbol
+    };
+
+    try {
+        await fetch('/api/user/settings', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: currentUser.user_id,
+                settings: settings
+            })
+        });
+    } catch (e) {
+        console.error("Save settings error:", e);
+    }
+}
+
+function applyUserSettings(s) {
+    if (s.pinnedItems) {
+        pinnedItems = new Set(s.pinnedItems);
+        localStorage.setItem("pinnedItems", JSON.stringify(Array.from(pinnedItems)));
+    }
+    if (s.enabledExchanges) {
+        enabledExchanges = new Set(s.enabledExchanges);
+        localStorage.setItem("enabledExchanges", JSON.stringify(Array.from(enabledExchanges)));
+    }
+    if (s.minSpread !== undefined) {
+        state.minSpread = s.minSpread;
+        if ($("minSpreadInput")) $("minSpreadInput").value = s.minSpread;
+    }
+    if (s.entryAlert !== undefined) state.entryAlert = s.entryAlert;
+    if (s.exitAlert !== undefined) state.exitAlert = s.exitAlert;
+    if (s.longEx) setCustomSelectValue("longEx", s.longEx);
+    if (s.shortEx) setCustomSelectValue("shortEx", s.shortEx);
+    
+    scan();
+}
+
+function initTgAuth() {
+    const saved = localStorage.getItem("tg_user");
+    if (saved) {
+        try {
+            currentUser = JSON.parse(saved);
+        } catch (e) {}
+    }
+    renderTgAuthUI();
+
+    if ($("tgSubmitAuth")) {
+        $("tgSubmitAuth").onclick = () => {
+            const inputVal = ($("tgInputUsername").value || "").trim();
+            if (!inputVal) return;
+            
+            const cleanUsername = inputVal.replace(/^@/, '');
+            let hash = 0;
+            for (let i = 0; i < cleanUsername.length; i++) {
+                hash = ((hash << 5) - hash) + cleanUsername.charCodeAt(i);
+                hash |= 0;
+            }
+            const userId = Math.abs(hash) || 100000;
+
+            const userObj = {
+                user_id: userId,
+                first_name: cleanUsername,
+                username: cleanUsername,
+                photo_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanUsername)}&background=2AABEE&color=fff`,
+                auth_date: Math.floor(Date.now() / 1000)
+            };
+
+            loginTelegramUser(userObj);
+            if ($("tgAuthModal")) $("tgAuthModal").style.display = "none";
+        };
+    }
+
+    if ($("tgCloseAuth")) {
+        $("tgCloseAuth").onclick = () => {
+            if ($("tgAuthModal")) $("tgAuthModal").style.display = "none";
+        };
+    }
+}
+
 let chart, inSeries, outSeries;
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -1112,6 +1286,7 @@ async function start() {
     document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
     initChart();
     initCustomSelects();
+    initTgAuth();
     updateTradeButtons();
     fetchExchangesStatus();
     scan();

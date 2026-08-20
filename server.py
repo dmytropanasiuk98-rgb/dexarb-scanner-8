@@ -5,9 +5,10 @@ import sqlite3
 from typing import Dict, List, Tuple, Optional
 import aiohttp
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,11 +61,64 @@ import bullet
 from contextlib import asynccontextmanager
 
 _logger_task: Optional[asyncio.Task] = None
-_cleanup_task: Optional[asyncio.Task] = None
+async def self_ping_loop():
+    """Periodically pings self on Render to keep instance active 24/7."""
+    while True:
+        await asyncio.sleep(600)  # Ping every 10 minutes
+        try:
+            url = os.environ.get("RENDER_EXTERNAL_URL") or "https://dexarb-scanner.onrender.com"
+            s = await get_session()
+            async with s.get(f"{url}/api/symbols", timeout=5) as r:
+                pass
+        except Exception:
+            pass
+
+_ping_task: Optional[asyncio.Task] = None
+
+DB_PATH = "arb_dashboard.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY,
+        first_name TEXT,
+        last_name TEXT,
+        username TEXT,
+        photo_url TEXT,
+        auth_date INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_settings (
+        user_id INTEGER PRIMARY KEY,
+        settings_json TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+class TelegramAuthPayload(BaseModel):
+    user_id: int
+    first_name: Optional[str] = ""
+    last_name: Optional[str] = ""
+    username: Optional[str] = ""
+    photo_url: Optional[str] = ""
+    auth_date: Optional[int] = 0
+
+class UserSettingsPayload(BaseModel):
+    user_id: int
+    settings: Dict
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _logger_task, _cleanup_task
+    global _logger_task, _cleanup_task, _ping_task
     # Startup
     await lighter_ws.client.start()
     await rh_lighter_ws.client.start()
@@ -75,12 +129,15 @@ async def lifespan(app: FastAPI):
     
     _logger_task = asyncio.create_task(history_logger_loop())
     _cleanup_task = asyncio.create_task(history_cleanup_loop())
+    _ping_task = asyncio.create_task(self_ping_loop())
     yield
     # Shutdown
     if _logger_task:
         _logger_task.cancel()
     if _cleanup_task:
         _cleanup_task.cancel()
+    if _ping_task:
+        _ping_task.cancel()
     await lighter_ws.client.stop()
     await rh_lighter_ws.client.stop()
     await variational.client.stop()
@@ -91,6 +148,66 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.post("/api/auth/telegram")
+async def api_auth_telegram(payload: TelegramAuthPayload):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO users (user_id, first_name, last_name, username, photo_url, auth_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            first_name=excluded.first_name,
+            last_name=excluded.last_name,
+            username=excluded.username,
+            photo_url=excluded.photo_url,
+            auth_date=excluded.auth_date
+        """, (payload.user_id, payload.first_name, payload.last_name, payload.username, payload.photo_url, payload.auth_date))
+        
+        cursor.execute("SELECT settings_json FROM user_settings WHERE user_id = ?", (payload.user_id,))
+        row = cursor.fetchone()
+        settings = json.loads(row[0]) if row else {}
+        
+        conn.commit()
+        conn.close()
+        return {"ok": True, "user": payload.dict(), "settings": settings}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+@app.get("/api/user/settings")
+async def api_get_user_settings(user_id: Optional[int] = 0):
+    try:
+        if not user_id:
+            return {"ok": True, "settings": {}}
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT settings_json FROM user_settings WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        settings = json.loads(row[0]) if row else {}
+        return {"ok": True, "settings": settings}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+@app.post("/api/user/settings")
+async def api_save_user_settings(payload: UserSettingsPayload):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        settings_str = json.dumps(payload.settings)
+        cursor.execute("""
+        INSERT INTO user_settings (user_id, settings_json)
+        VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            settings_json=excluded.settings_json,
+            updated_at=CURRENT_TIMESTAMP
+        """, (payload.user_id, settings_str))
+        conn.commit()
+        conn.close()
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
 PARA_BASE_URL = "https://api.prod.paradex.trade/v1"
 ETH_BASE_URL = "https://api.ethereal.trade"
