@@ -978,9 +978,10 @@ th {
     left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
-    background: rgba(0, 0, 0, 0.45) !important;
-    backdrop-filter: blur(8px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(8px) saturate(180%) !important;
+    height: 100dvh !important;
+    background: rgba(0, 0, 0, 0.65) !important;
+    backdrop-filter: blur(12px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
     z-index: 9999 !important;
     opacity: 0;
     visibility: hidden;
@@ -999,6 +1000,8 @@ th {
     width: 650px !important;
     max-width: 95vw !important;
     height: 100% !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
     border-radius: 20px 0 0 20px !important;
     background: linear-gradient(180deg, #141a29 0%, #0d111a 100%) !important;
     border-left: 1px solid rgba(55, 115, 245, 0.4) !important;
@@ -1006,21 +1009,36 @@ th {
     border-right: none !important;
     border-bottom: none !important;
     box-shadow: -20px 0 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(55, 115, 245, 0.25) !important;
-    padding: 24px !important;
+    padding: 24px 24px 12px 24px !important;
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;
     transform: translateX(100%);
     transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    overflow: hidden !important;
 }
 
 .drawer-grid-2col {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 20px !important;
-    flex: 1;
-    overflow-y: auto;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
     padding-right: 6px;
+}
+
+.drawer-footer {
+    display: flex !important;
+    gap: 12px !important;
+    padding-top: 14px !important;
+    padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    margin-top: 12px !important;
+    flex-shrink: 0 !important;
+    background: #0d111a !important;
+    z-index: 10 !important;
 }
 
 .drawer-col {
@@ -2513,6 +2531,44 @@ select option {
         content: "Net APR:";
         color: #94a3b8;
         font-size: 10px;
+    }
+
+    .drawer-modal {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 16px !important;
+        box-sizing: border-box !important;
+    }
+
+    .settings-drawer {
+        width: 100% !important;
+        max-width: 520px !important;
+        height: auto !important;
+        max-height: 85dvh !important;
+        border-radius: 24px !important;
+        padding: 20px 20px 16px 20px !important;
+        border: 1.5px solid rgba(55, 115, 245, 0.45) !important;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(55, 115, 245, 0.3) !important;
+    }
+
+    .drawer-grid-2col {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-right: 4px !important;
+    }
+
+    .drawer-footer {
+        padding: 14px 0 0 0 !important;
+        margin-top: 12px !important;
+        position: relative !important;
+        background: transparent !important;
+        z-index: 10 !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
 }
 
