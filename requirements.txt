@@ -3,3 +3,4 @@ uvicorn
 aiohttp
 requests
 websockets
+psycopg2-binary

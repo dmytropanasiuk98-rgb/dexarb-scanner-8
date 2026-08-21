@@ -20,57 +20,120 @@ logger = logging.getLogger("ArbitrageServer")
 HISTORY_DB_PATH = "arb_history.db"
 USER_DB_PATH = "arb_dashboard.db"
 
+USE_PG = False
+PG_DSN = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+
+if PG_DSN:
+    if PG_DSN.startswith("postgres://"):
+        PG_DSN = PG_DSN.replace("postgres://", "postgresql://", 1)
+    try:
+        import psycopg2
+        test_conn = psycopg2.connect(PG_DSN, connect_timeout=5)
+        test_conn.close()
+        USE_PG = True
+        logger.info("Connected to PostgreSQL cloud database successfully!")
+    except Exception as e:
+        logger.warning(f"Could not connect to PostgreSQL ({e}), falling back to local SQLite.")
+        USE_PG = False
+
+def get_db():
+    if USE_PG:
+        import psycopg2
+        conn = psycopg2.connect(PG_DSN)
+        return conn, "%s"
+    else:
+        conn = sqlite3.connect(HISTORY_DB_PATH)
+        return conn, "?"
+
 def init_history_db():
-    conn = sqlite3.connect(HISTORY_DB_PATH)
+    conn, ph = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS spread_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp INTEGER,
-            symbol TEXT,
-            long_ex TEXT,
-            short_ex TEXT,
-            entry_pct REAL,
-            exit_pct REAL,
-            long_ask REAL,
-            short_bid REAL,
-            long_funding REAL DEFAULT 0.0,
-            short_funding REAL DEFAULT 0.0
-        )
-    """)
-    try:
-        cur.execute("ALTER TABLE spread_history ADD COLUMN long_funding REAL DEFAULT 0.0")
-    except Exception:
-        pass
-    try:
-        cur.execute("ALTER TABLE spread_history ADD COLUMN short_funding REAL DEFAULT 0.0")
-    except Exception:
-        pass
+    if USE_PG:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS spread_history (
+                id SERIAL PRIMARY KEY,
+                timestamp BIGINT,
+                symbol VARCHAR(32),
+                long_ex VARCHAR(32),
+                short_ex VARCHAR(32),
+                entry_pct DOUBLE PRECISION,
+                exit_pct DOUBLE PRECISION,
+                long_ask DOUBLE PRECISION,
+                short_bid DOUBLE PRECISION,
+                long_funding DOUBLE PRECISION DEFAULT 0.0,
+                short_funding DOUBLE PRECISION DEFAULT 0.0
+            )
+        """)
+    else:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS spread_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp INTEGER,
+                symbol TEXT,
+                long_ex TEXT,
+                short_ex TEXT,
+                entry_pct REAL,
+                exit_pct REAL,
+                long_ask REAL,
+                short_bid REAL,
+                long_funding REAL DEFAULT 0.0,
+                short_funding REAL DEFAULT 0.0
+            )
+        """)
+        try:
+            cur.execute("ALTER TABLE spread_history ADD COLUMN long_funding REAL DEFAULT 0.0")
+        except Exception:
+            pass
+        try:
+            cur.execute("ALTER TABLE spread_history ADD COLUMN short_funding REAL DEFAULT 0.0")
+        except Exception:
+            pass
     conn.commit()
     conn.close()
 
 def init_user_db():
-    conn = sqlite3.connect(USER_DB_PATH)
+    conn, ph = get_db()
     cursor = conn.cursor()
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY,
-        first_name TEXT,
-        last_name TEXT,
-        username TEXT,
-        photo_url TEXT,
-        auth_date INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS user_settings (
-        user_id INTEGER PRIMARY KEY,
-        settings_json TEXT,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
-    )
-    """)
+    if USE_PG:
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id BIGINT PRIMARY KEY,
+            first_name TEXT,
+            last_name TEXT,
+            username TEXT,
+            photo_url TEXT,
+            auth_date BIGINT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id BIGINT PRIMARY KEY,
+            settings_json TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+        """)
+    else:
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            first_name TEXT,
+            last_name TEXT,
+            username TEXT,
+            photo_url TEXT,
+            auth_date INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER PRIMARY KEY,
+            settings_json TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+        """)
     conn.commit()
     conn.close()
 
@@ -691,12 +754,13 @@ async def history_logger_loop():
                             records.append((now_ts, s, lex, sex, round(entry, 4), round(exit_, 4), la, sb, round(l_fr, 4), round(s_fr, 4)))
             
             if records:
-                conn = sqlite3.connect(HISTORY_DB_PATH)
+                conn, ph = get_db()
                 cur = conn.cursor()
-                cur.executemany("""
+                query = f"""
                     INSERT INTO spread_history (timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, records)
+                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+                """
+                cur.executemany(query, records)
                 conn.commit()
                 conn.close()
         except asyncio.CancelledError:
@@ -705,19 +769,19 @@ async def history_logger_loop():
             logger.error(f"History logger error: {e}")
 
 async def history_cleanup_loop():
-    """Deletes history records older than 7 days (7 * 86400 seconds)."""
+    """Deletes history records older than 30 days (30 * 86400 seconds / 1 month)."""
     while True:
         try:
             await asyncio.sleep(3600)  # Check every hour
-            seven_days_ago = int(time.time()) - (7 * 86400)
-            conn = sqlite3.connect(HISTORY_DB_PATH)
+            thirty_days_ago = int(time.time()) - (30 * 86400)
+            conn, ph = get_db()
             cur = conn.cursor()
-            cur.execute("DELETE FROM spread_history WHERE timestamp < ?", (seven_days_ago,))
-            deleted_cnt = cur.rowcount
+            cur.execute(f"DELETE FROM spread_history WHERE timestamp < {ph}", (thirty_days_ago,))
+            deleted_cnt = cur.rowcount if hasattr(cur, 'rowcount') else 0
             conn.commit()
             conn.close()
             if deleted_cnt > 0:
-                logger.info(f"Cleaned up {deleted_cnt} history records older than 7 days.")
+                logger.info(f"Cleaned up {deleted_cnt} history records older than 30 days.")
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -726,41 +790,41 @@ async def history_cleanup_loop():
 @app.get("/api/history")
 async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = None, short_ex: Optional[str] = None, limit: int = 1000):
     try:
-        conn = sqlite3.connect(HISTORY_DB_PATH)
+        conn, ph = get_db()
         cur = conn.cursor()
         rows = []
         if symbol and long_ex and short_ex:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding
                 FROM spread_history
-                WHERE symbol = ? AND long_ex = ? AND short_ex = ?
-                ORDER BY id DESC LIMIT ?
+                WHERE symbol = {ph} AND long_ex = {ph} AND short_ex = {ph}
+                ORDER BY id DESC LIMIT {ph}
             """, (symbol.upper(), long_ex, short_ex, limit))
             direct_rows = cur.fetchall()
             
             if len(direct_rows) > 0:
                 rows = direct_rows
             else:
-                cur.execute("""
+                cur.execute(f"""
                     SELECT timestamp, symbol, short_ex, long_ex, -entry_pct, -exit_pct, short_bid, long_ask, short_funding, long_funding
                     FROM spread_history
-                    WHERE symbol = ? AND long_ex = ? AND short_ex = ?
-                    ORDER BY id DESC LIMIT ?
+                    WHERE symbol = {ph} AND long_ex = {ph} AND short_ex = {ph}
+                    ORDER BY id DESC LIMIT {ph}
                 """, (symbol.upper(), short_ex, long_ex, limit))
                 rows = cur.fetchall()
         elif symbol:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding
                 FROM spread_history
-                WHERE symbol = ?
-                ORDER BY id DESC LIMIT ?
+                WHERE symbol = {ph}
+                ORDER BY id DESC LIMIT {ph}
             """, (symbol.upper(), limit))
             rows = cur.fetchall()
         else:
-            cur.execute("""
+            cur.execute(f"""
                 SELECT timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding
                 FROM spread_history
-                ORDER BY id DESC LIMIT ?
+                ORDER BY id DESC LIMIT {ph}
             """, (limit,))
             rows = cur.fetchall()
         conn.close()

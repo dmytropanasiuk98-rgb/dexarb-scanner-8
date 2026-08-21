@@ -400,7 +400,22 @@ function initChart() {
     chart = LightweightCharts.createChart($("chart"), {
         layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#848e9c' },
         grid: { vertLines: { color: '#2b2f36' }, horzLines: { color: '#2b2f36' } },
-        timeScale: { timeVisible: true, secondsVisible: true },
+        timeScale: {
+            timeVisible: true,
+            secondsVisible: false,
+            tickMarkFormatter: (time) => {
+                const date = new Date(time * 1000);
+                return date.toLocaleTimeString("uk-UA", { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kyiv' });
+            }
+        },
+        localization: {
+            locale: 'uk-UA',
+            dateFormat: 'yyyy-MM-dd',
+            timeFormatter: (time) => {
+                const date = new Date(time * 1000);
+                return date.toLocaleString("uk-UA", { timeZone: 'Europe/Kyiv', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
+        }
     });
     inSeries = chart.addLineSeries({ color: '#2ebd85', lineWidth: 2 });
     outSeries = chart.addLineSeries({ color: '#f6465d', lineWidth: 2 });
