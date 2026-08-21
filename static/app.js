@@ -1481,7 +1481,7 @@ function getExchangeTradeUrl(ex, symbol) {
         return `https://app.lighter.xyz/trade/${s}`;
     } else if (ex === "Variational") {
         const vSym = (s === "SPY") ? "US500" : (s === "QQQ" ? "US100" : s);
-        return `https://omni.variational.io/perpetual/${vSym}-USD`;
+        return `https://omni.variational.io/perpetual/${vSym}`;
     } else if (ex === "Extended" || ex === "EXTENDET") {
         return `https://app.extended.exchange/trade/${s}-USD`;
     } else if (ex === "RiseX") {
