@@ -1529,7 +1529,8 @@ const EXCHANGE_NAMES = {
     "Extended": "Extended DEX",
     "Lighter": "Lighter DEX",
     "RiseX": "RiseX",
-    "Bullet": "Bullet DEX"
+    "Bullet": "Bullet DEX",
+    "TxFlow": "TxFlow DEX"
 };
 
 const EXCHANGE_ICONS = {
@@ -1539,7 +1540,8 @@ const EXCHANGE_ICONS = {
     "Extended": "/static/images/extended.png",
     "Lighter": "/static/images/lighter_dex.png",
     "RiseX": "/static/images/risex.png",
-    "Bullet": "/static/images/bullet.png"
+    "Bullet": "/static/images/bullet.png",
+    "TxFlow": "/static/txflow.png"
 };
 
 function getExchangeTradeUrl(ex, symbol) {
@@ -1561,6 +1563,8 @@ function getExchangeTradeUrl(ex, symbol) {
     } else if (ex === "Bullet") {
         const bSym = (s === "SPY") ? "US500" : s;
         return `https://app.bullet.xyz/trade/${bSym}-USD`;
+    } else if (ex === "TxFlow") {
+        return `https://app.txflow.com/trade/${s}-USDC`;
     }
     return "#";
 }
@@ -1735,6 +1739,7 @@ function updateSettingsModalUI() {
     if ($("exLighter")) $("exLighter").checked = enabledExchanges.includes("Lighter");
     if ($("exRiseX")) $("exRiseX").checked = enabledExchanges.includes("RiseX");
     if ($("exBullet")) $("exBullet").checked = enabledExchanges.includes("Bullet");
+    if ($("exTxFlow")) $("exTxFlow").checked = enabledExchanges.includes("TxFlow");
     if ($("minSpreadInput")) $("minSpreadInput").value = state.minSpread;
     if ($("minFundingInput")) $("minFundingInput").value = state.minFunding;
 
@@ -1809,11 +1814,12 @@ if ($("saveSettings")) $("saveSettings").onclick = () => {
     if ($("exLighter") && $("exLighter").checked) newEx.push("Lighter");
     if ($("exRiseX") && $("exRiseX").checked) newEx.push("RiseX");
     if ($("exBullet") && $("exBullet").checked) newEx.push("Bullet");
+    if ($("exTxFlow") && $("exTxFlow").checked) newEx.push("TxFlow");
     
     if (newEx.length >= 2) {
         enabledExchanges = newEx;
     } else {
-        enabledExchanges = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet"];
+        enabledExchanges = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"];
     }
     localStorage.setItem("enabledExchanges", JSON.stringify(enabledExchanges));
     

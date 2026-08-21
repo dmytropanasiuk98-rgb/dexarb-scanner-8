@@ -171,6 +171,7 @@ import variational
 import extended_client
 import risex
 import bullet
+import txflow
 
 class TelegramAuthPayload(BaseModel):
     user_id: int
@@ -210,6 +211,7 @@ async def lifespan(app: FastAPI):
     await extended_client.client.start()
     await risex.client.start()
     await bullet.client.start()
+    await txflow.client.start()
     
     _logger_task = asyncio.create_task(history_logger_loop())
     _cleanup_task = asyncio.create_task(history_cleanup_loop())
@@ -228,6 +230,7 @@ async def lifespan(app: FastAPI):
     await extended_client.client.stop()
     await risex.client.stop()
     await bullet.client.stop()
+    await txflow.client.stop()
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -458,6 +461,9 @@ async def get_symbols_for_exchanges(exchanges: List[str], require_all: bool = Fa
                     b_syms.remove("US500")
                     b_syms.add("SPY")
                 exchange_symbols.append(b_syms)
+
+            elif ex == "TxFlow":
+                exchange_symbols.append(set(txflow.client.prices.keys()))
             
             elif ex == "EXTENDET":
                 s = await get_session()
@@ -562,6 +568,9 @@ async def fetch_price_raw(ex: str, sym: str) -> Tuple[float, float]:
         elif ex == "Bullet":
             bid, ask = bullet.client.get_price(actual_sym)
             return bid, ask
+        elif ex == "TxFlow":
+            bid, ask = txflow.client.get_price(actual_sym)
+            return bid, ask
         elif ex == "EXTENDET":
             s = await get_session()
             async with s.get(f"https://api.starknet.extended.exchange/api/v1/info/markets/{actual_sym}-USD/orderbook") as r:
@@ -631,6 +640,8 @@ def get_exchange_health(ex: str) -> str:
         if risex.client and risex.client.prices: return "ok"
     elif ex == "Bullet":
         if bullet.client and bullet.client.prices: return "ok"
+    elif ex == "TxFlow":
+        if txflow.client and txflow.client.prices: return "ok"
 
     last = _exchange_last_seen.get(ex, 0)
     if last > 0 and (now - last) < 20.0:
@@ -645,7 +656,7 @@ async def index():
 
 @app.get("/api/exchanges_status")
 async def api_exchanges_status():
-    all_ex = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet"]
+    all_ex = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"]
     status = {ex: get_exchange_health(ex) for ex in all_ex}
     return {"ok": True, "status": status}
 
@@ -655,8 +666,8 @@ async def api_symbols():
     try:
         all_symbols = set()
         
-        # Get symbols from active exchanges: Ondo, RH_Lighter, Variational, Extended, Lighter, RiseX, Bullet
-        for ex in ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet"]:
+        # Get symbols from active exchanges: Ondo, RH_Lighter, Variational, Extended, Lighter, RiseX, Bullet, TxFlow
+        for ex in ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"]:
             syms = await get_symbols_for_exchanges([ex])
             all_symbols.update(syms)
             
@@ -706,6 +717,8 @@ async def get_funding_rate(ex: str, sym: str) -> float:
         return risex.client.get_funding(actual_sym)
     elif ex == "Bullet":
         return bullet.client.get_funding(actual_sym)
+    elif ex == "TxFlow":
+        return txflow.client.get_funding(actual_sym)
     elif ex == "Variational":
         return variational.client.get_funding(actual_sym)
     elif ex == "Ondo":
@@ -884,9 +897,15 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
             else:
                 lb, la = await get_price(long_ex, symbol)
                 sb, sa = await get_price(short_ex, symbol)
-                if la > 0 and sb > 0:
+                
+                ref_price = la if la > 0 else (sb if sb > 0 else 0.0)
+                if ref_price > 0:
+                    if la <= 0: la = ref_price
+                    if lb <= 0: lb = ref_price
+                    if sa <= 0: sa = ref_price
+                    if sb <= 0: sb = ref_price
                     curr_entry = (sb - la) / la * 100.0
-                    curr_exit = (lb - sa) / lb * 100.0 if lb > 0 and sa > 0 else 0.0
+                    curr_exit = (lb - sa) / lb * 100.0
                 else:
                     curr_entry = 0.0
                     curr_exit = 0.0
@@ -970,10 +989,10 @@ async def api_scan_top(
     elif long_ex and short_ex:
         enabled = [long_ex, short_ex]
     else:
-        enabled = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet"]
+        enabled = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"]
 
     if len(enabled) < 2:
-        enabled = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet"]
+        enabled = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"]
 
     syms = await get_symbols_for_exchanges(enabled)
     

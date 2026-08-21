@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <title>DEXARB Pro + Alerts</title>
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-  <link rel="stylesheet" href="/static/styles.css?v=46000">
+  <link rel="stylesheet" href="/static/styles.css?v=54000">
 </head>
 
 <body>
@@ -27,6 +27,7 @@
             <div class="custom-dropdown-option" data-value="Lighter"><img src="/static/images/lighter_dex.png" class="ex-icon"> <span>Lighter DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
             <div class="custom-dropdown-option" data-value="RiseX"><img src="/static/images/risex.png" class="ex-icon"> <span>RiseX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
             <div class="custom-dropdown-option" data-value="Bullet"><img src="/static/images/bullet.png" class="ex-icon"> <span>Bullet DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
+            <div class="custom-dropdown-option" data-value="TxFlow"><img src="/static/txflow.png" class="ex-icon"> <span>TxFlow DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
           </div>
           <select id="longEx" style="display:none;">
             <option value="Ondo" selected>Ondo Perps</option>
@@ -36,6 +37,7 @@
             <option value="Lighter">Lighter DEX</option>
             <option value="RiseX">RiseX</option>
             <option value="Bullet">Bullet DEX</option>
+            <option value="TxFlow">TxFlow DEX</option>
           </select>
         </div>
       </div>
@@ -57,6 +59,7 @@
             <div class="custom-dropdown-option" data-value="Lighter"><img src="/static/images/lighter_dex.png" class="ex-icon"> <span>Lighter DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
             <div class="custom-dropdown-option" data-value="RiseX"><img src="/static/images/risex.png" class="ex-icon"> <span>RiseX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
             <div class="custom-dropdown-option" data-value="Bullet"><img src="/static/images/bullet.png" class="ex-icon"> <span>Bullet DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
+            <div class="custom-dropdown-option" data-value="TxFlow"><img src="/static/txflow.png" class="ex-icon"> <span>TxFlow DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
           </div>
           <select id="shortEx" style="display:none;">
             <option value="RH_Lighter" selected>Robinhood Lighter</option>
@@ -66,6 +69,7 @@
             <option value="Lighter">Lighter DEX</option>
             <option value="RiseX">RiseX</option>
             <option value="Bullet">Bullet DEX</option>
+            <option value="TxFlow">TxFlow DEX</option>
           </select>
         </div>
       </div>
@@ -272,6 +276,11 @@
               <img src="/static/images/bullet.png" class="ex-card-icon">
               <span class="ex-card-name">Bullet DEX</span>
             </label>
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exTxFlow" value="TxFlow" checked>
+              <img src="/static/txflow.png" class="ex-card-icon">
+              <span class="ex-card-name">TxFlow DEX</span>
+            </label>
           </div>
         </div>
       </div>
@@ -323,7 +332,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=52000"></script>
+  <script src="/static/app.js?v=56000"></script>
 </body>
 
 </html>
