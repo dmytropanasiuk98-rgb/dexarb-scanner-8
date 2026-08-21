@@ -172,6 +172,7 @@ import extended_client
 import risex
 import bullet
 import txflow
+import pacifica
 
 class TelegramAuthPayload(BaseModel):
     user_id: int
@@ -212,6 +213,7 @@ async def lifespan(app: FastAPI):
     await risex.client.start()
     await bullet.client.start()
     await txflow.client.start()
+    await pacifica.client.start()
     
     _logger_task = asyncio.create_task(history_logger_loop())
     _cleanup_task = asyncio.create_task(history_cleanup_loop())
@@ -231,6 +233,7 @@ async def lifespan(app: FastAPI):
     await risex.client.stop()
     await bullet.client.stop()
     await txflow.client.stop()
+    await pacifica.client.stop()
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -464,6 +467,9 @@ async def get_symbols_for_exchanges(exchanges: List[str], require_all: bool = Fa
 
             elif ex == "TxFlow":
                 exchange_symbols.append(set(txflow.client.prices.keys()))
+
+            elif ex == "Pacifica":
+                exchange_symbols.append(set(pacifica.client.prices.keys()))
             
             elif ex == "EXTENDET":
                 s = await get_session()
@@ -571,6 +577,9 @@ async def fetch_price_raw(ex: str, sym: str) -> Tuple[float, float]:
         elif ex == "TxFlow":
             bid, ask = txflow.client.get_price(actual_sym)
             return bid, ask
+        elif ex == "Pacifica":
+            bid, ask = pacifica.client.get_price(actual_sym)
+            return bid, ask
         elif ex == "EXTENDET":
             s = await get_session()
             async with s.get(f"https://api.starknet.extended.exchange/api/v1/info/markets/{actual_sym}-USD/orderbook") as r:
@@ -642,6 +651,8 @@ def get_exchange_health(ex: str) -> str:
         if bullet.client and bullet.client.prices: return "ok"
     elif ex == "TxFlow":
         if txflow.client and txflow.client.prices: return "ok"
+    elif ex == "Pacifica":
+        if pacifica.client and pacifica.client.prices: return "ok"
 
     last = _exchange_last_seen.get(ex, 0)
     if last > 0 and (now - last) < 20.0:
@@ -656,7 +667,7 @@ async def index():
 
 @app.get("/api/exchanges_status")
 async def api_exchanges_status():
-    all_ex = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"]
+    all_ex = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow", "Pacifica"]
     status = {ex: get_exchange_health(ex) for ex in all_ex}
     return {"ok": True, "status": status}
 
@@ -667,7 +678,7 @@ async def api_symbols():
         all_symbols = set()
         
         # Get symbols from active exchanges: Ondo, RH_Lighter, Variational, Extended, Lighter, RiseX, Bullet, TxFlow
-        for ex in ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"]:
+        for ex in ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow", "Pacifica"]:
             syms = await get_symbols_for_exchanges([ex])
             all_symbols.update(syms)
             
@@ -719,6 +730,8 @@ async def get_funding_rate(ex: str, sym: str) -> float:
         return bullet.client.get_funding(actual_sym)
     elif ex == "TxFlow":
         return txflow.client.get_funding(actual_sym)
+    elif ex == "Pacifica":
+        return pacifica.client.get_funding(actual_sym)
     elif ex == "Variational":
         return variational.client.get_funding(actual_sym)
     elif ex == "Ondo":
@@ -989,10 +1002,10 @@ async def api_scan_top(
     elif long_ex and short_ex:
         enabled = [long_ex, short_ex]
     else:
-        enabled = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"]
+        enabled = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow", "Pacifica"]
 
     if len(enabled) < 2:
-        enabled = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"]
+        enabled = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow", "Pacifica"]
 
     syms = await get_symbols_for_exchanges(enabled)
     

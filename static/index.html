@@ -28,6 +28,7 @@
             <div class="custom-dropdown-option" data-value="RiseX"><img src="/static/images/risex.png" class="ex-icon"> <span>RiseX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
             <div class="custom-dropdown-option" data-value="Bullet"><img src="/static/images/bullet.png" class="ex-icon"> <span>Bullet DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
             <div class="custom-dropdown-option" data-value="TxFlow"><img src="/static/txflow.png" class="ex-icon"> <span>TxFlow DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
+            <div class="custom-dropdown-option" data-value="Pacifica"><img src="/static/pacifica.png" class="ex-icon"> <span>Pacifica DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
           </div>
           <select id="longEx" style="display:none;">
             <option value="Ondo" selected>Ondo Perps</option>
@@ -38,6 +39,7 @@
             <option value="RiseX">RiseX</option>
             <option value="Bullet">Bullet DEX</option>
             <option value="TxFlow">TxFlow DEX</option>
+            <option value="Pacifica">Pacifica DEX</option>
           </select>
         </div>
       </div>
@@ -60,6 +62,7 @@
             <div class="custom-dropdown-option" data-value="RiseX"><img src="/static/images/risex.png" class="ex-icon"> <span>RiseX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
             <div class="custom-dropdown-option" data-value="Bullet"><img src="/static/images/bullet.png" class="ex-icon"> <span>Bullet DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
             <div class="custom-dropdown-option" data-value="TxFlow"><img src="/static/txflow.png" class="ex-icon"> <span>TxFlow DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
+            <div class="custom-dropdown-option" data-value="Pacifica"><img src="/static/pacifica.png" class="ex-icon"> <span>Pacifica DEX</span> <span class="ex-status-dot dot-green" title="Працює стабільно"></span></div>
           </div>
           <select id="shortEx" style="display:none;">
             <option value="RH_Lighter" selected>Robinhood Lighter</option>
@@ -70,6 +73,7 @@
             <option value="RiseX">RiseX</option>
             <option value="Bullet">Bullet DEX</option>
             <option value="TxFlow">TxFlow DEX</option>
+            <option value="Pacifica">Pacifica DEX</option>
           </select>
         </div>
       </div>
@@ -281,6 +285,11 @@
               <img src="/static/txflow.png" class="ex-card-icon">
               <span class="ex-card-name">TxFlow DEX</span>
             </label>
+            <label class="ex-checkbox-card">
+              <input type="checkbox" id="exPacifica" value="Pacifica" checked>
+              <img src="/static/pacifica.png" class="ex-card-icon">
+              <span class="ex-card-name">Pacifica DEX</span>
+            </label>
           </div>
         </div>
       </div>
@@ -332,7 +341,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=56000"></script>
+  <script src="/static/app.js?v=57000"></script>
 </body>
 
 </html>

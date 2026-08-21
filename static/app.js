@@ -1530,7 +1530,8 @@ const EXCHANGE_NAMES = {
     "Lighter": "Lighter DEX",
     "RiseX": "RiseX",
     "Bullet": "Bullet DEX",
-    "TxFlow": "TxFlow DEX"
+    "TxFlow": "TxFlow DEX",
+    "Pacifica": "Pacifica DEX"
 };
 
 const EXCHANGE_ICONS = {
@@ -1541,7 +1542,8 @@ const EXCHANGE_ICONS = {
     "Lighter": "/static/images/lighter_dex.png",
     "RiseX": "/static/images/risex.png",
     "Bullet": "/static/images/bullet.png",
-    "TxFlow": "/static/txflow.png"
+    "TxFlow": "/static/txflow.png",
+    "Pacifica": "/static/pacifica.png"
 };
 
 function getExchangeTradeUrl(ex, symbol) {
@@ -1565,6 +1567,8 @@ function getExchangeTradeUrl(ex, symbol) {
         return `https://app.bullet.xyz/trade/${bSym}-USD`;
     } else if (ex === "TxFlow") {
         return `https://app.txflow.com/trade/${s}-USDC`;
+    } else if (ex === "Pacifica") {
+        return `https://app.pacifica.fi/trade/${s}`;
     }
     return "#";
 }
@@ -1740,6 +1744,7 @@ function updateSettingsModalUI() {
     if ($("exRiseX")) $("exRiseX").checked = enabledExchanges.includes("RiseX");
     if ($("exBullet")) $("exBullet").checked = enabledExchanges.includes("Bullet");
     if ($("exTxFlow")) $("exTxFlow").checked = enabledExchanges.includes("TxFlow");
+    if ($("exPacifica")) $("exPacifica").checked = enabledExchanges.includes("Pacifica");
     if ($("minSpreadInput")) $("minSpreadInput").value = state.minSpread;
     if ($("minFundingInput")) $("minFundingInput").value = state.minFunding;
 
@@ -1815,11 +1820,12 @@ if ($("saveSettings")) $("saveSettings").onclick = () => {
     if ($("exRiseX") && $("exRiseX").checked) newEx.push("RiseX");
     if ($("exBullet") && $("exBullet").checked) newEx.push("Bullet");
     if ($("exTxFlow") && $("exTxFlow").checked) newEx.push("TxFlow");
+    if ($("exPacifica") && $("exPacifica").checked) newEx.push("Pacifica");
     
     if (newEx.length >= 2) {
         enabledExchanges = newEx;
     } else {
-        enabledExchanges = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow"];
+        enabledExchanges = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow", "Pacifica"];
     }
     localStorage.setItem("enabledExchanges", JSON.stringify(enabledExchanges));
     
