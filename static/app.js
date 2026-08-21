@@ -1485,7 +1485,7 @@ function getExchangeTradeUrl(ex, symbol) {
     } else if (ex === "Extended" || ex === "EXTENDET") {
         return `https://app.extended.exchange/trade/${s}-USD`;
     } else if (ex === "RiseX") {
-        return `https://www.rise.trade/en/trade`;
+        return `https://www.rise.trade/en/trade/${s}`;
     } else if (ex === "Bullet") {
         const bSym = (s === "SPY") ? "US500" : s;
         return `https://app.bullet.xyz/trade/${bSym}-USD`;
