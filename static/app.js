@@ -462,9 +462,9 @@ const PHONETIC_MAP = {
 };
 
 const QWERTY_MAP = {
-    'й':'q', 'ц':'w', 'у':'e', 'к':'r', 'е':'t', 'н':'y', 'г':'u', 'ш':'i', 'щ':'o', 'з':'p', 'х':'[', 'ї':']',
-    'ф':'a', 'і':'s', 'в':'d', 'а':'f', 'п':'g', 'р':'h', 'о':'j', 'л':'k', 'д':'l', 'ж':';', 'є':"'",
-    'я':'z', 'ч':'x', 'с':'c', 'м':'v', 'и':'b', 'т':'n', 'ь':'m', 'б':'b', 'ю':'u', 'ы':'s', 'э':"'", 'ъ':']'
+    'й':'q', 'ц':'w', 'у':'e', 'к':'r', 'е':'t', 'н':'y', 'г':'u', 'ш':'i', 'щ':'o', 'з':'p', 'х':'h', 'ї':'j', 'ъ':'', 'ё':'yo',
+    'ф':'a', 'і':'s', 'ы':'s', 'в':'d', 'а':'f', 'п':'g', 'р':'h', 'о':'j', 'л':'k', 'д':'l', 'ж':'j', 'є':'e', 'э':'e',
+    'я':'z', 'ч':'x', 'с':'c', 'м':'v', 'и':'b', 'т':'n', 'ь':'m', 'б':'b', 'ю':'u', 'ґ':'g'
 };
 
 function convertCyrillicToLatin(str) {
@@ -474,12 +474,15 @@ function convertCyrillicToLatin(str) {
         return CRYPTO_ALIASES[upperStr];
     }
     
-    // Convert phonetically first
+    // Convert via QWERTY keyboard layout map (Q -> Й, W -> Ц, E -> У, etc.)
     let result = '';
     for (let i = 0; i < str.length; i++) {
         const char = str[i];
         const lower = char.toLowerCase();
-        if (PHONETIC_MAP[lower] !== undefined) {
+        if (QWERTY_MAP[lower] !== undefined) {
+            const converted = QWERTY_MAP[lower];
+            result += (char === char.toUpperCase() && char !== char.toLowerCase()) ? converted.toUpperCase() : converted;
+        } else if (PHONETIC_MAP[lower] !== undefined) {
             const converted = PHONETIC_MAP[lower];
             result += (char === char.toUpperCase() && char !== char.toLowerCase()) ? converted.toUpperCase() : converted;
         } else {
@@ -490,32 +493,19 @@ function convertCyrillicToLatin(str) {
 }
 
 function convertQWERTYLayout(str) {
-    if (!str) return '';
-    let result = '';
-    for (let i = 0; i < str.length; i++) {
-        const char = str[i];
-        const lower = char.toLowerCase();
-        if (QWERTY_MAP[lower] !== undefined) {
-            const converted = QWERTY_MAP[lower];
-            result += (char === char.toUpperCase() && char !== char.toLowerCase()) ? converted.toUpperCase() : converted;
-        } else {
-            result += char;
-        }
-    }
-    return result;
+    return convertCyrillicToLatin(str);
 }
 
 function filterSymbols(query) {
     if (!query) return allSymbols;
     const qRaw = query.trim();
     const qUpper = qRaw.toUpperCase();
-    const qPhonetic = convertCyrillicToLatin(qRaw).toUpperCase();
-    const qQwerty = convertQWERTYLayout(qRaw).toUpperCase();
+    const qLatin = convertCyrillicToLatin(qRaw).toUpperCase();
 
     return allSymbols.filter(s => {
         const sUpper = s.toUpperCase();
-        return sUpper.startsWith(qUpper) || sUpper.startsWith(qPhonetic) || sUpper.startsWith(qQwerty) ||
-               sUpper.includes(qUpper) || sUpper.includes(qPhonetic) || sUpper.includes(qQwerty);
+        return sUpper.startsWith(qUpper) || sUpper.startsWith(qLatin) ||
+               sUpper.includes(qUpper) || sUpper.includes(qLatin);
     });
 }
 
