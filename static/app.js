@@ -355,23 +355,45 @@ function playSwooshSound(reverse = false) {
     } catch (e) {}
 }
 
-function playAlertSound() {
-    // Не грати звук частіше ніж раз на 5 секунд
-    if (Date.now() - state.lastAlertTime < 5000) return;
+function playAlertSound(forced = false) {
+    try {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
 
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+        // Avoid playing more often than once per 2 seconds unless test button clicked
+        if (!forced && (Date.now() - state.lastAlertTime < 2000)) return;
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
 
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.3);
-    state.lastAlertTime = Date.now();
+        // High-pitched crystal dual-tone alarm chime (880Hz -> 1174Hz)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, t);
+        osc.frequency.setValueAtTime(1174, t + 0.12);
+
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+        osc.start(t);
+        osc.stop(t + 0.35);
+        state.lastAlertTime = Date.now();
+    } catch (e) {
+        console.error("Alert sound error:", e);
+    }
 }
+
+// Auto-resume AudioContext on any user interaction so browser never blocks alerts
+['click', 'touchstart', 'keydown', 'mousedown'].forEach(evt => {
+    document.addEventListener(evt, () => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }, { once: false, passive: true });
+});
 
 function initChart() {
     if (!$("chart")) return;
@@ -694,11 +716,38 @@ async function poll() {
                 lastChartTimestamp = t;
             }
 
-            let shouldPlay = false;
-            if (state.entryAlert !== null && data.entry_pct >= state.entryAlert) shouldPlay = true;
-            if (state.exitAlert !== null && data.exit_pct >= state.exitAlert) shouldPlay = true;
+            // Real-time evaluation of per-symbol alert for current active chart symbol
+            const symCfg = symbolAlerts[state.symbol];
+            if (symCfg) {
+                let triggeredType = null;
+                if (symCfg.entry !== null && symCfg.entry !== undefined && data.entry_pct >= symCfg.entry) {
+                    triggeredType = 'ENTRY';
+                } else if (symCfg.exit !== null && symCfg.exit !== undefined && data.exit_pct >= symCfg.exit) {
+                    triggeredType = 'EXIT';
+                }
 
-            if (shouldPlay) playAlertSound();
+                if (triggeredType) {
+                    if (!activeSignalsMap[state.symbol]) {
+                        activeSignalsMap[state.symbol] = { symbol: state.symbol, type: triggeredType, spread: data.entry_pct };
+                        if (!pinnedItems.some(p => p.symbol === state.symbol)) {
+                            pinnedItems.unshift({ symbol: state.symbol, long_ex: state.longEx, short_ex: state.shortEx });
+                            localStorage.setItem("pinnedItems", JSON.stringify(pinnedItems));
+                        }
+                    }
+                    startContinuousAlertAudio();
+                    renderMuteSignalUI();
+                    renderScanItems(lastScanItems);
+                } else {
+                    if (activeSignalsMap[state.symbol]) {
+                        delete activeSignalsMap[state.symbol];
+                        if (Object.keys(activeSignalsMap).length === 0) {
+                            stopContinuousAlertAudio();
+                        }
+                        renderMuteSignalUI();
+                        renderScanItems(lastScanItems);
+                    }
+                }
+            }
 
             renderMainTitle();
         } else {
@@ -774,14 +823,17 @@ function updateAlertBellUI() {
 
 function startContinuousAlertAudio() {
     if (alertAudioInterval) return;
-    playAlertSound();
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    playAlertSound(true);
     alertAudioInterval = setInterval(() => {
         if (Object.keys(activeSignalsMap).length > 0) {
-            playAlertSound();
+            playAlertSound(true);
         } else {
             stopContinuousAlertAudio();
         }
-    }, 1800);
+    }, 2200);
 }
 
 function stopContinuousAlertAudio() {
@@ -1174,12 +1226,21 @@ async function scan() {
                 const netFrVal = (it.net_funding !== undefined) ? it.net_funding : ((it.short_funding || 0) - (it.long_funding || 0));
                 let triggeredType = null;
 
-                // 1. Per-symbol Alert
+                // 1. Per-symbol Alert (check top-level spread + all variations)
                 const cfg = symbolAlerts[it.symbol];
                 if (cfg) {
-                    if (cfg.entry !== null && cfg.entry !== undefined && spr >= cfg.entry) {
+                    let maxSpread = spr;
+                    let maxExit = (it.exit_pct !== undefined) ? it.exit_pct : -999;
+                    if (Array.isArray(it.variations)) {
+                        it.variations.forEach(v => {
+                            if (v.entry_pct !== undefined && v.entry_pct > maxSpread) maxSpread = v.entry_pct;
+                            if (v.exit_pct !== undefined && v.exit_pct > maxExit) maxExit = v.exit_pct;
+                        });
+                    }
+
+                    if (cfg.entry !== null && cfg.entry !== undefined && maxSpread >= cfg.entry) {
                         triggeredType = 'ENTRY';
-                    } else if (cfg.exit !== null && cfg.exit !== undefined && it.exit_pct >= cfg.exit) {
+                    } else if (cfg.exit !== null && cfg.exit !== undefined && maxExit >= cfg.exit) {
                         triggeredType = 'EXIT';
                     }
                 }
@@ -1358,10 +1419,6 @@ function renderMainTitle() {
             <div class="chart-symbol-badge">
                 <span class="symbol-badge-text">${state.symbol}</span>
             </div>
-            <button class="btn-share-pair" onclick="copyShareLink(event)" title="Скопіювати посилання на зв'язку ${state.symbol} (${state.longEx} / ${state.shortEx}) 🔗">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                <span>Поділитися</span>
-            </button>
         </div>
     `;
 }
