@@ -700,7 +700,7 @@ async function poll() {
 
             if (shouldPlay) playAlertSound();
 
-            if ($("mainTitle")) $("mainTitle").innerHTML = `<b>${state.symbol}</b> | <span class="green">L: ${state.longEx}</span> | <span class="red">S: ${state.shortEx}</span>`;
+            renderMainTitle();
         } else {
             if ($("dot")) $("dot").className = "dot err";
         }
@@ -1241,11 +1241,88 @@ async function loadChartHistory() {
     }
 }
 
+function renderMainTitle() {
+    if (!$("mainTitle")) return;
+    $("mainTitle").innerHTML = `
+        <div class="chart-header-left">
+            <div class="chart-symbol-badge">
+                <span class="symbol-badge-text">${state.symbol}</span>
+            </div>
+        </div>
+    `;
+}
+
+// Single Coin Selector Drawer Modal Logic
+window.openCoinSelectorModal = function() {
+    playTactileClick();
+    renderCoinSelectorGrid();
+    const modal = $("coinSelectorModal");
+    if (modal) {
+        modal.style.display = "flex";
+        modal.offsetHeight;
+        modal.classList.add("open");
+        setTimeout(() => {
+            if ($("coinSelectorSearch")) {
+                $("coinSelectorSearch").value = "";
+                $("coinSelectorSearch").focus();
+            }
+        }, 100);
+    }
+};
+
+window.closeCoinSelectorModal = function() {
+    playTactileClick();
+    const modal = $("coinSelectorModal");
+    if (modal) {
+        modal.classList.remove("open");
+        setTimeout(() => {
+            if (!modal.classList.contains("open")) {
+                modal.style.display = "none";
+            }
+        }, 350);
+    }
+};
+
+function renderCoinSelectorGrid() {
+    const container = $("coinGridList");
+    if (!container) return;
+
+    const coins = (typeof availableSymbols !== "undefined" && availableSymbols && availableSymbols.length > 0) 
+        ? availableSymbols 
+        : ["BTC", "ETH", "SOL", "LIT", "CASHCAT", "ARM", "FARTCOIN", "GRVT", "MOVE", "AAVE", "PUMP", "DOGE", "SUI"];
+
+    const searchInput = $("coinSelectorSearch");
+    const query = searchInput ? searchInput.value.trim().toUpperCase() : "";
+
+    const filtered = coins.filter(c => c.toUpperCase().includes(query));
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #848e9c; padding: 20px;">Монет за запитом "${query}" не знайдено</div>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map(c => {
+        const isSelected = c === state.symbol;
+        return `
+            <div class="coin-grid-card ${isSelected ? 'active-ticker' : ''}" onclick="pickCoinAndClose('${c}')">
+                <span class="coin-ticker-name">${c}</span>
+                ${isSelected ? '<span class="coin-active-dot"></span>' : ''}
+            </div>
+        `;
+    }).join("");
+}
+
+window.pickCoinAndClose = function(sym) {
+    playTactileClick();
+    selectSymbol(sym);
+    closeCoinSelectorModal();
+};
+
 function updateDashboard() {
     if ($("longEx")) state.longEx = $("longEx").value;
     if ($("shortEx")) state.shortEx = $("shortEx").value;
 
-    if ($("mainTitle")) $("mainTitle").innerHTML = `<b>${state.symbol}</b> | <span class="green">L: ${state.longEx}</span> | <span class="red">S: ${state.shortEx}</span>`;
+    renderMainTitle();
     if ($("longExName")) $("longExName").textContent = state.longEx;
     if ($("shortExName")) $("shortExName").textContent = state.shortEx;
 
@@ -1283,11 +1360,13 @@ function getExchangeTradeUrl(ex, symbol) {
     if (ex === "Ondo") {
         const ondoSym = (s === "SPY" || s === "SP500_INDEX") ? "US500" : s;
         return `https://app.ondoperps.xyz/trade/perps/${ondoSym}-USD.P`;
-    } else if (ex === "RH_Lighter" || ex === "Lighter") {
+    } else if (ex === "RH_Lighter") {
+        return `https://robinhoodchain.lighter.xyz/trade/${s}`;
+    } else if (ex === "Lighter") {
         return `https://app.lighter.xyz/trade/${s}`;
     } else if (ex === "Variational") {
         const vSym = (s === "SPY") ? "US500" : (s === "QQQ" ? "US100" : s);
-        return `https://omni.variational.io/perpetual/${vSym}`;
+        return `https://omni.variational.io/perpetual/${vSym}-USD`;
     } else if (ex === "Extended" || ex === "EXTENDET") {
         return `https://app.extended.exchange/trade/${s}-USD`;
     } else if (ex === "RiseX") {
@@ -1634,6 +1713,7 @@ async function start() {
     initCustomSelects();
     initTgAuth();
     updateTradeButtons();
+    updateDashboard();
     fetchExchangesStatus();
     scan();
     await loadSymbols();
@@ -1679,6 +1759,70 @@ if (sidebarToggleBtn) {
                 }
             };
             requestAnimationFrame(animateResize);
+        }
+    };
+}
+
+let stepHoldTimer = null;
+let stepHoldInterval = null;
+
+window.startStepHold = function(inputId, delta) {
+    stepInputValue(inputId, delta);
+    clearStepHold();
+
+    stepHoldTimer = setTimeout(() => {
+        stepHoldInterval = setInterval(() => {
+            stepInputValue(inputId, delta);
+        }, 80);
+    }, 320);
+};
+
+window.clearStepHold = function() {
+    if (stepHoldTimer) {
+        clearTimeout(stepHoldTimer);
+        stepHoldTimer = null;
+    }
+    if (stepHoldInterval) {
+        clearInterval(stepHoldInterval);
+        stepHoldInterval = null;
+    }
+};
+
+window.addEventListener('mouseup', clearStepHold);
+window.addEventListener('mouseleave', clearStepHold);
+window.addEventListener('touchend', clearStepHold);
+window.addEventListener('touchcancel', clearStepHold);
+
+window.stepInputValue = function(inputId, delta) {
+    playTactileClick();
+    const el = $(inputId);
+    if (!el) return;
+    let val = parseFloat(el.value.replace(",", "."));
+    if (isNaN(val)) val = 0;
+    val += delta;
+    if (delta.toString().includes(".")) {
+        val = Math.round(val * 100) / 100;
+    }
+    el.value = val;
+};
+
+// Universal button & interactive element click sound listener
+document.addEventListener('click', (e) => {
+    const clickable = e.target.closest('button, .btn-step-input, .btn-drawer-close, .ex-checkbox-card, .switch, input[type="checkbox"], .sort-btn');
+    if (clickable) {
+        playTactileClick();
+    }
+});
+
+if ($("coinSelectorSearch")) {
+    $("coinSelectorSearch").oninput = () => renderCoinSelectorGrid();
+}
+if ($("closeCoinSelectorX")) $("closeCoinSelectorX").onclick = closeCoinSelectorModal;
+if ($("closeCoinSelectorBtn")) $("closeCoinSelectorBtn").onclick = closeCoinSelectorModal;
+if ($("coinSelectorModal")) {
+    $("coinSelectorModal").onclick = (e) => {
+        if (e.target === $("coinSelectorModal")) {
+            closeCoinSelectorModal();
         }
     };
 }

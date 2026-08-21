@@ -5,6 +5,7 @@ import sqlite3
 import json
 import os
 from typing import Dict, List, Tuple, Optional
+from contextlib import asynccontextmanager
 import aiohttp
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -16,10 +17,11 @@ from pydantic import BaseModel
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ArbitrageServer")
 
-DB_PATH = "arb_history.db"
+HISTORY_DB_PATH = "arb_history.db"
+USER_DB_PATH = "arb_dashboard.db"
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
+def init_history_db():
+    conn = sqlite3.connect(HISTORY_DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS spread_history (
@@ -47,40 +49,8 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_db()
-
-try:
-    from ethereal import AsyncRESTClient
-except ImportError:
-    AsyncRESTClient = None
-
-import lighter_ws
-import rh_lighter_ws
-import variational
-import extended_client
-import risex
-import bullet
-from contextlib import asynccontextmanager
-
-_logger_task: Optional[asyncio.Task] = None
-async def self_ping_loop():
-    """Periodically pings self on Render to keep instance active 24/7."""
-    while True:
-        await asyncio.sleep(600)  # Ping every 10 minutes
-        try:
-            url = os.environ.get("RENDER_EXTERNAL_URL") or "https://dexarb-scanner.onrender.com"
-            s = await get_session()
-            async with s.get(f"{url}/api/symbols", timeout=5) as r:
-                pass
-        except Exception:
-            pass
-
-_ping_task: Optional[asyncio.Task] = None
-
-DB_PATH = "arb_dashboard.db"
-
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
+def init_user_db():
+    conn = sqlite3.connect(USER_DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
@@ -104,7 +74,20 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_db()
+init_history_db()
+init_user_db()
+
+try:
+    from ethereal import AsyncRESTClient
+except ImportError:
+    AsyncRESTClient = None
+
+import lighter_ws
+import rh_lighter_ws
+import variational
+import extended_client
+import risex
+import bullet
 
 class TelegramAuthPayload(BaseModel):
     user_id: int
@@ -117,6 +100,22 @@ class TelegramAuthPayload(BaseModel):
 class UserSettingsPayload(BaseModel):
     user_id: int
     settings: Dict
+
+_logger_task: Optional[asyncio.Task] = None
+_cleanup_task: Optional[asyncio.Task] = None
+_ping_task: Optional[asyncio.Task] = None
+
+async def self_ping_loop():
+    """Periodically pings self on Render to keep instance active 24/7."""
+    while True:
+        await asyncio.sleep(600)  # Ping every 10 minutes
+        try:
+            url = os.environ.get("RENDER_EXTERNAL_URL") or "https://dexarb-scanner.onrender.com"
+            s = await get_session()
+            async with s.get(f"{url}/api/symbols", timeout=5) as r:
+                pass
+        except Exception:
+            pass
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -182,7 +181,7 @@ async def api_get_user_settings(user_id: Optional[int] = 0):
     try:
         if not user_id:
             return {"ok": True, "settings": {}}
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(USER_DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT settings_json FROM user_settings WHERE user_id = ?", (user_id,))
         row = cursor.fetchone()
@@ -195,7 +194,7 @@ async def api_get_user_settings(user_id: Optional[int] = 0):
 @app.post("/api/user/settings")
 async def api_save_user_settings(payload: UserSettingsPayload):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(USER_DB_PATH)
         cursor = conn.cursor()
         settings_str = json.dumps(payload.settings)
         cursor.execute("""
@@ -692,7 +691,7 @@ async def history_logger_loop():
                             records.append((now_ts, s, lex, sex, round(entry, 4), round(exit_, 4), la, sb, round(l_fr, 4), round(s_fr, 4)))
             
             if records:
-                conn = sqlite3.connect(DB_PATH)
+                conn = sqlite3.connect(HISTORY_DB_PATH)
                 cur = conn.cursor()
                 cur.executemany("""
                     INSERT INTO spread_history (timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding)
@@ -711,7 +710,7 @@ async def history_cleanup_loop():
         try:
             await asyncio.sleep(3600)  # Check every hour
             seven_days_ago = int(time.time()) - (7 * 86400)
-            conn = sqlite3.connect(DB_PATH)
+            conn = sqlite3.connect(HISTORY_DB_PATH)
             cur = conn.cursor()
             cur.execute("DELETE FROM spread_history WHERE timestamp < ?", (seven_days_ago,))
             deleted_cnt = cur.rowcount
@@ -727,7 +726,7 @@ async def history_cleanup_loop():
 @app.get("/api/history")
 async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = None, short_ex: Optional[str] = None, limit: int = 1000):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(HISTORY_DB_PATH)
         cur = conn.cursor()
         rows = []
         if symbol and long_ex and short_ex:
@@ -766,7 +765,7 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
             rows = cur.fetchall()
         conn.close()
 
-        # If records for a requested symbol/exchange pair are sparse (< 60 points), synthesize a smooth 1-hour backfilled baseline so the chart is full from left to right!
+        # If records for a requested symbol/exchange pair are sparse (< 60 points), synthesize a smooth 1-hour backfilled baseline ONLY IF BOTH PRICES ARE VALID (> 0)!
         if symbol and long_ex and short_ex and len(rows) < 60:
             now_ts = int(time.time())
             
@@ -781,8 +780,12 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
             else:
                 lb, la = await get_price(long_ex, symbol)
                 sb, sa = await get_price(short_ex, symbol)
-                curr_entry = (sb - la) / la * 100.0 if la > 0 and sb > 0 else 0.0
-                curr_exit = (lb - sa) / lb * 100.0 if lb > 0 and sa > 0 else 0.0
+                if la > 0 and sb > 0:
+                    curr_entry = (sb - la) / la * 100.0
+                    curr_exit = (lb - sa) / lb * 100.0 if lb > 0 and sa > 0 else 0.0
+                else:
+                    curr_entry = 0.0
+                    curr_exit = 0.0
                 curr_l_ask = la
                 curr_s_bid = sb
                 curr_l_fr = await get_funding_rate(long_ex, symbol)
@@ -795,13 +798,14 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
             walk_entry = curr_entry
             walk_exit = curr_exit
             
-            for minutes_back in range(1, 61):
-                t_point = now_ts - (minutes_back * 60)
-                if t_point not in existing_ts:
-                    step = (random.random() - 0.5) * 0.008
-                    walk_entry = round(walk_entry + step, 4)
-                    walk_exit = round(walk_exit + step, 4)
-                    synth_rows.append((t_point, symbol.upper(), long_ex, short_ex, walk_entry, walk_exit, curr_l_ask, curr_s_bid, curr_l_fr, curr_s_fr))
+            if curr_l_ask > 0 and curr_s_bid > 0:
+                for minutes_back in range(1, 61):
+                    t_point = now_ts - (minutes_back * 60)
+                    if t_point not in existing_ts:
+                        step = (random.random() - 0.5) * 0.008
+                        walk_entry = round(walk_entry + step, 4)
+                        walk_exit = round(walk_exit + step, 4)
+                        synth_rows.append((t_point, symbol.upper(), long_ex, short_ex, walk_entry, walk_exit, curr_l_ask, curr_s_bid, curr_l_fr, curr_s_fr))
             
             rows = rows + synth_rows
             rows.sort(key=lambda x: x[0], reverse=True)

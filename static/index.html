@@ -88,15 +88,17 @@
     <div class="left-col card">
       <div class="header-info">
         <h1 id="mainTitle">Оберіть пару</h1>
-        <div class="funding-rates-box" style="display: flex; align-items: center; gap: 8px; font-size: 13px; background: #151921; padding: 4px 10px; border-radius: 6px; border: 1px solid #2b2f36;">
-          <span style="color: #888;">Funding:</span>
-          <span><span id="longExName" style="color: #2ebd85;">Ondo</span>: <b id="longFundingVal" style="color: #2ebd85;">0.0000%</b></span>
-          <span style="color: #444;">|</span>
-          <span><span id="shortExName" style="color: #f6465d;">RH_Lighter</span>: <b id="shortFundingVal" style="color: #f6465d;">0.0000%</b></span>
-          <span style="color: #888;">=</span>
-          <span>Net: <b id="netFundingVal" style="color: #2ebd85;">+0.0000% APR</b></span>
+        <div class="funding-rates-box">
+          <span class="funding-label-tag">FUNDING:</span>
+          <span class="funding-stat-item"><span id="longExName" class="ex-stat-name long-name">Ondo</span>: <b id="longFundingVal" class="ex-stat-val long-val">0.0000%</b></span>
+          <span class="funding-divider">|</span>
+          <span class="funding-stat-item"><span id="shortExName" class="ex-stat-name short-name">RH_Lighter</span>: <b id="shortFundingVal" class="ex-stat-val short-val">0.0000%</b></span>
+          <span class="funding-divider">=</span>
+          <div class="funding-net-badge">
+            <span class="net-lbl">Net:</span>
+            <b id="netFundingVal" class="net-val">+0.0000% APR</b>
+          </div>
         </div>
-        <button id="openAlerts" class="btn-icon" title="Налаштувати звукові алерти">🔔</button>
       </div>
 
       <div class="metrics-row">
@@ -120,14 +122,25 @@
 
     <div class="right-col card sidebar">
       <div class="sidebar-header">
-        <h3>ТОП СПРЕДИ</h3>
-        <button id="openSettings" class="btn-mini sidebar-toggle" title="Налаштування сканера"
-          style="font-size: 18px;">⚙</button>
-        <button id="sidebarToggle" class="sidebar-toggle" title="Сховати панель">
-          <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M6 3l6 5-6 5V3z" />
-          </svg>
-        </button>
+        <div class="sidebar-title-wrapper">
+          <span class="live-pulse-dot" title="Сканер активний"></span>
+          <h3 class="sidebar-title-text">ТОП СПРЕДИ</h3>
+        </div>
+        <div class="sidebar-header-actions">
+          <button id="openAlerts" class="btn-sidebar-action btn-alerts-icon" title="Налаштувати звукові алерти 🔔">🔔</button>
+          <button id="openSettings" class="btn-sidebar-action btn-settings-icon" title="Налаштування сканера ⚙️">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+          <button id="sidebarToggle" class="btn-sidebar-action btn-toggle-arrow" title="Сховати панель">
+            <svg class="toggle-arrow-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="13 17 18 12 13 7"></polyline>
+              <polyline points="6 17 11 12 6 7"></polyline>
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="sidebar-content">
         <table>
@@ -157,11 +170,19 @@
           <div class="settings-section-title">📊 Фільтрація Списку</div>
           <div class="field">
             <label>Мінімальний спред для списку (%):</label>
-            <input type="number" id="minSpreadInput" value="0.01" step="0.01">
+            <div class="custom-number-input">
+              <button type="button" class="btn-step-input" onmousedown="startStepHold('minSpreadInput', -0.01)" onmouseleave="clearStepHold()" ontouchstart="startStepHold('minSpreadInput', -0.01)" ontouchend="clearStepHold()" title="Зменшити спред">−</button>
+              <input type="number" id="minSpreadInput" value="0.01" step="0.01">
+              <button type="button" class="btn-step-input" onmousedown="startStepHold('minSpreadInput', 0.01)" onmouseleave="clearStepHold()" ontouchstart="startStepHold('minSpreadInput', 0.01)" ontouchend="clearStepHold()" title="Збільшити спред">+</button>
+            </div>
           </div>
           <div class="field">
             <label>Мінімальний річний фандінг (Net APR %):</label>
-            <input type="number" id="minFundingInput" value="0" step="0.1" placeholder="0">
+            <div class="custom-number-input">
+              <button type="button" class="btn-step-input" onmousedown="startStepHold('minFundingInput', -0.5)" onmouseleave="clearStepHold()" ontouchstart="startStepHold('minFundingInput', -0.5)" ontouchend="clearStepHold()" title="Зменшити фандінг">−</button>
+              <input type="number" id="minFundingInput" value="0" step="0.1" placeholder="0">
+              <button type="button" class="btn-step-input" onmousedown="startStepHold('minFundingInput', 0.5)" onmouseleave="clearStepHold()" ontouchstart="startStepHold('minFundingInput', 0.5)" ontouchend="clearStepHold()" title="Збільшити фандінг">+</button>
+            </div>
           </div>
 
           <div class="settings-divider"></div>
@@ -266,9 +287,32 @@
         <button id="closeAlerts" class="btn-secondary">Закрити</button>
       </div>
     </div>
+  <!-- Single Coin Selector Modal / Drawer -->
+  <div id="coinSelectorModal" class="drawer-modal" style="display: none;">
+    <div class="settings-drawer coin-selector-drawer">
+      <div class="drawer-header">
+        <h3>Вибір монети 🪙 <span class="header-subtitle" style="font-size: 13px; color: #94a3b8; font-weight: 500;">(Швидкий пошук)</span></h3>
+        <button id="closeCoinSelectorX" class="btn-drawer-close" title="Закрити">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <div class="coin-search-container">
+          <svg class="search-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="coinSelectorSearch" class="coin-search-input" placeholder="Введіть тикер монети (напр. BTC, ETH, LIT)..." autocomplete="off">
+        </div>
+
+        <div id="coinGridList" class="coin-grid-layout">
+          <!-- Populated dynamically by JS -->
+        </div>
+      </div>
+
+      <div class="drawer-footer">
+        <button id="closeCoinSelectorBtn" class="btn-secondary">Закрити</button>
+      </div>
+    </div>
   </div>
 
-  <script src="/static/app.js?v=22000"></script>
+  <script src="/static/app.js?v=40000"></script>
 </body>
 
 </html>
