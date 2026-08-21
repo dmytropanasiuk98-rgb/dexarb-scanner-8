@@ -1305,6 +1305,52 @@ async function loadChartHistory() {
     }
 }
 
+function updateUrlState() {
+    if (!window.history || !window.history.replaceState) return;
+    const newUrl = `${window.location.pathname}?symbol=${encodeURIComponent(state.symbol)}&long_ex=${encodeURIComponent(state.longEx)}&short_ex=${encodeURIComponent(state.shortEx)}`;
+    window.history.replaceState(null, '', newUrl);
+}
+
+window.copyShareLink = function(event) {
+    if (event) event.stopPropagation();
+    playTactileClick();
+    const currentUrl = window.location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(currentUrl).then(() => {
+            showShareToast("Скопійовано! 📋 Посилання на зв'язку у буфері обміну");
+        }).catch(() => {
+            fallbackCopy(currentUrl);
+        });
+    } else {
+        fallbackCopy(currentUrl);
+    }
+};
+
+function fallbackCopy(text) {
+    const input = document.createElement("input");
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    document.body.removeChild(input);
+    showShareToast("Скопійовано! 📋 Посилання на зв'язку у буфері обміну");
+}
+
+function showShareToast(msg) {
+    let toast = $("shareToast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "shareToast";
+        toast.className = "share-toast";
+        document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(() => {
+        toast.classList.remove("show");
+    }, 2500);
+}
+
 function renderMainTitle() {
     if (!$("mainTitle")) return;
     $("mainTitle").innerHTML = `
@@ -1312,6 +1358,10 @@ function renderMainTitle() {
             <div class="chart-symbol-badge">
                 <span class="symbol-badge-text">${state.symbol}</span>
             </div>
+            <button class="btn-share-pair" onclick="copyShareLink(event)" title="Скопіювати посилання на зв'язку ${state.symbol} (${state.longEx} / ${state.shortEx}) 🔗">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                <span>Поділитися</span>
+            </button>
         </div>
     `;
 }
@@ -1386,6 +1436,7 @@ function updateDashboard() {
     if ($("longEx")) state.longEx = $("longEx").value;
     if ($("shortEx")) state.shortEx = $("shortEx").value;
 
+    updateUrlState();
     renderMainTitle();
     if ($("longExName")) $("longExName").textContent = state.longEx;
     if ($("shortExName")) $("shortExName").textContent = state.shortEx;
@@ -1777,6 +1828,9 @@ async function start() {
     document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
     initChart();
     initCustomSelects();
+    if (state.longEx) setCustomSelectValue("longEx", state.longEx);
+    if (state.shortEx) setCustomSelectValue("shortEx", state.shortEx);
+    if (state.symbol && $("symbolSearch")) $("symbolSearch").value = state.symbol;
     initTgAuth();
     updateTradeButtons();
     updateDashboard();
