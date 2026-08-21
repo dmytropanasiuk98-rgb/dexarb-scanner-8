@@ -37,18 +37,21 @@ if PG_DSN:
         USE_PG = False
 
 def get_db():
-    if USE_PG:
-        import psycopg2
-        conn = psycopg2.connect(PG_DSN)
-        return conn, "%s"
-    else:
-        conn = sqlite3.connect(HISTORY_DB_PATH)
-        return conn, "?"
+    if USE_PG and PG_DSN:
+        try:
+            import psycopg2
+            conn = psycopg2.connect(PG_DSN, connect_timeout=4)
+            conn.autocommit = True
+            return conn, "%s", True
+        except Exception as e:
+            logger.warning(f"PostgreSQL connection failed ({e}), falling back to SQLite.")
+    conn = sqlite3.connect(HISTORY_DB_PATH)
+    return conn, "?", False
 
 def init_history_db():
-    conn, ph = get_db()
+    conn, ph, is_pg = get_db()
     cur = conn.cursor()
-    if USE_PG:
+    if is_pg:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS spread_history (
                 id SERIAL PRIMARY KEY,
@@ -92,9 +95,9 @@ def init_history_db():
     conn.close()
 
 def init_user_db():
-    conn, ph = get_db()
+    conn, ph, is_pg = get_db()
     cursor = conn.cursor()
-    if USE_PG:
+    if is_pg:
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id BIGINT PRIMARY KEY,
@@ -754,7 +757,7 @@ async def history_logger_loop():
                             records.append((now_ts, s, lex, sex, round(entry, 4), round(exit_, 4), la, sb, round(l_fr, 4), round(s_fr, 4)))
             
             if records:
-                conn, ph = get_db()
+                conn, ph, is_pg = get_db()
                 cur = conn.cursor()
                 query = f"""
                     INSERT INTO spread_history (timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding)
@@ -774,7 +777,7 @@ async def history_cleanup_loop():
         try:
             await asyncio.sleep(3600)  # Check every hour
             thirty_days_ago = int(time.time()) - (30 * 86400)
-            conn, ph = get_db()
+            conn, ph, is_pg = get_db()
             cur = conn.cursor()
             cur.execute(f"DELETE FROM spread_history WHERE timestamp < {ph}", (thirty_days_ago,))
             deleted_cnt = cur.rowcount if hasattr(cur, 'rowcount') else 0
@@ -789,10 +792,10 @@ async def history_cleanup_loop():
 
 @app.get("/api/history")
 async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = None, short_ex: Optional[str] = None, limit: int = 1000):
+    rows = []
     try:
-        conn, ph = get_db()
+        conn, ph, is_pg = get_db()
         cur = conn.cursor()
-        rows = []
         if symbol and long_ex and short_ex:
             cur.execute(f"""
                 SELECT timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding
@@ -828,6 +831,9 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
             """, (limit,))
             rows = cur.fetchall()
         conn.close()
+    except Exception as e:
+        logger.error(f"Error querying history DB: {e}")
+        rows = []
 
         # If records for a requested symbol/exchange pair are sparse (< 60 points), synthesize a smooth 1-hour backfilled baseline ONLY IF BOTH PRICES ARE VALID (> 0)!
         if symbol and long_ex and short_ex and len(rows) < 60:
