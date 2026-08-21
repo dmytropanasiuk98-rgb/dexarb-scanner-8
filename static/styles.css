@@ -2680,29 +2680,31 @@ select option {
 
 /* Eye Icon Hide Coin Button */
 .btn-hide-coin {
-    background: none;
-    border: none;
-    color: #64748b;
-    font-size: 11px;
-    cursor: pointer;
-    padding: 2px 4px;
-    border-radius: 4px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    margin-left: 2px;
-    margin-right: 4px;
-    vertical-align: middle;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.65;
+    background: transparent !important;
+    border: none !important;
+    color: #64748b !important;
+    font-size: 11px !important;
+    cursor: pointer !important;
+    padding: 1px 3px !important;
+    border-radius: 4px !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    margin-left: 2px !important;
+    margin-right: 2px !important;
+    vertical-align: middle !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    opacity: 0.65 !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
 .btn-hide-coin:hover {
-    color: #f59e0b;
-    background: rgba(245, 158, 11, 0.15);
-    transform: scale(1.15);
-    opacity: 1;
-    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+    color: #f59e0b !important;
+    background: rgba(245, 158, 11, 0.18) !important;
+    transform: scale(1.15) !important;
+    opacity: 1 !important;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4) !important;
 }
 
 /* Hidden Coins Section in Settings Modal */
