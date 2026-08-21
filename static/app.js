@@ -631,6 +631,12 @@ document.addEventListener("click", (e) => {
         const dropdown = $("symbolDropdown");
         if (dropdown) dropdown.classList.remove("show");
     }
+    if (!e.target.closest(".custom-ticker-wrapper")) {
+        document.querySelectorAll('.custom-ticker-menu').forEach(m => m.classList.remove('show'));
+        document.querySelectorAll('.custom-ticker-wrapper').forEach(w => w.classList.remove('open'));
+        if ($("longCard")) $("longCard").style.zIndex = "100";
+        if ($("shortCard")) $("shortCard").style.zIndex = "100";
+    }
 });
 
 let lastExStatus = {};
@@ -693,7 +699,9 @@ async function fetchExchangesStatus() {
 async function poll() {
     if (!state.isRunning) return;
     try {
-        const r = await fetch(`/api/poll?symbol=${state.symbol}&long_ex=${state.longEx}&short_ex=${state.shortEx}`);
+        const lSym = state.longSymbol || state.symbol;
+        const sSym = state.shortSymbol || state.symbol;
+        const r = await fetch(`/api/poll?symbol=${state.symbol}&long_ex=${state.longEx}&short_ex=${state.shortEx}&long_sym=${lSym}&short_sym=${sSym}`);
         const data = await r.json();
         if (data.ok) {
             if (data.exchanges_status) {
@@ -706,6 +714,17 @@ async function poll() {
 
             if ($("longExName")) $("longExName").textContent = state.longEx;
             if ($("shortExName")) $("shortExName").textContent = state.shortEx;
+
+            if ($("longCardDot")) {
+                const isLongActive = (data.long_ok === true);
+                $("longCardDot").className = `ex-status-dot ${isLongActive ? 'dot-green' : 'dot-red'}`;
+                $("longCardDot").title = isLongActive ? `Монета доступна на ${state.longEx}` : `Монета відсутня або недоступна на ${state.longEx}`;
+            }
+            if ($("shortCardDot")) {
+                const isShortActive = (data.short_ok === true);
+                $("shortCardDot").className = `ex-status-dot ${isShortActive ? 'dot-green' : 'dot-red'}`;
+                $("shortCardDot").title = isShortActive ? `Монета доступна на ${state.shortEx}` : `Монета відсутня або недоступна на ${state.shortEx}`;
+            }
 
             const lfr = (data.long_funding !== undefined && data.long_funding !== null) ? data.long_funding : 0.0;
             const sfr = (data.short_funding !== undefined && data.short_funding !== null) ? data.short_funding : 0.0;
@@ -731,14 +750,17 @@ async function poll() {
                 lastChartTimestamp = t;
             }
 
-            // Real-time evaluation of per-symbol alert for current active chart symbol
+            // Real-time evaluation of per-symbol alert for current active chart symbol & pair
             const symCfg = symbolAlerts[state.symbol];
             if (symCfg) {
+                const isPairMatch = (!symCfg.longEx || symCfg.longEx === state.longEx) && (!symCfg.shortEx || symCfg.shortEx === state.shortEx);
                 let triggeredType = null;
-                if (symCfg.entry !== null && symCfg.entry !== undefined && data.entry_pct >= symCfg.entry) {
-                    triggeredType = 'ENTRY';
-                } else if (symCfg.exit !== null && symCfg.exit !== undefined && data.exit_pct >= symCfg.exit) {
-                    triggeredType = 'EXIT';
+                if (isPairMatch) {
+                    if (symCfg.entry !== null && symCfg.entry !== undefined && data.entry_pct >= symCfg.entry) {
+                        triggeredType = 'ENTRY';
+                    } else if (symCfg.exit !== null && symCfg.exit !== undefined && data.exit_pct >= symCfg.exit) {
+                        triggeredType = 'EXIT';
+                    }
                 }
 
                 if (triggeredType) {
@@ -1241,21 +1263,33 @@ async function scan() {
                 const netFrVal = (it.net_funding !== undefined) ? it.net_funding : ((it.short_funding || 0) - (it.long_funding || 0));
                 let triggeredType = null;
 
-                // 1. Per-symbol Alert (check top-level spread + all variations)
+                // 1. Per-symbol Alert (check configured pair or matching variation ONLY)
                 const cfg = symbolAlerts[it.symbol];
                 if (cfg) {
-                    let maxSpread = spr;
-                    let maxExit = (it.exit_pct !== undefined) ? it.exit_pct : -999;
+                    let targetSpread = -999;
+                    let targetExit = -999;
+
+                    const mainLong = it.long_ex || state.longEx;
+                    const mainShort = it.short_ex || state.shortEx;
+                    const isMainMatch = (!cfg.longEx || cfg.longEx === mainLong) && (!cfg.shortEx || cfg.shortEx === mainShort);
+                    if (isMainMatch) {
+                        targetSpread = spr;
+                        if (it.exit_pct !== undefined) targetExit = it.exit_pct;
+                    }
+
                     if (Array.isArray(it.variations)) {
                         it.variations.forEach(v => {
-                            if (v.entry_pct !== undefined && v.entry_pct > maxSpread) maxSpread = v.entry_pct;
-                            if (v.exit_pct !== undefined && v.exit_pct > maxExit) maxExit = v.exit_pct;
+                            const vMatch = (!cfg.longEx || cfg.longEx === v.long_ex) && (!cfg.shortEx || cfg.shortEx === v.short_ex);
+                            if (vMatch) {
+                                if (v.entry_pct !== undefined && v.entry_pct > targetSpread) targetSpread = v.entry_pct;
+                                if (v.exit_pct !== undefined && v.exit_pct > targetExit) targetExit = v.exit_pct;
+                            }
                         });
                     }
 
-                    if (cfg.entry !== null && cfg.entry !== undefined && maxSpread >= cfg.entry) {
+                    if (cfg.entry !== null && cfg.entry !== undefined && targetSpread >= cfg.entry && targetSpread > -900) {
                         triggeredType = 'ENTRY';
-                    } else if (cfg.exit !== null && cfg.exit !== undefined && maxExit >= cfg.exit) {
+                    } else if (cfg.exit !== null && cfg.exit !== undefined && targetExit >= cfg.exit && targetExit > -900) {
                         triggeredType = 'EXIT';
                     }
                 }
@@ -1325,7 +1359,9 @@ let lastChartTimestamp = 0;
 async function loadChartHistory() {
     if (!inSeries || !outSeries) return;
     try {
-        const url = `/api/history?symbol=${encodeURIComponent(state.symbol)}&long_ex=${encodeURIComponent(state.longEx)}&short_ex=${encodeURIComponent(state.shortEx)}&limit=1000`;
+        const lSym = state.longSymbol || state.symbol;
+        const sSym = state.shortSymbol || state.symbol;
+        const url = `/api/history?symbol=${encodeURIComponent(state.symbol)}&long_ex=${encodeURIComponent(state.longEx)}&short_ex=${encodeURIComponent(state.shortEx)}&limit=1000&long_sym=${encodeURIComponent(lSym)}&short_sym=${encodeURIComponent(sSym)}`;
         const r = await fetch(url);
         const d = await r.json();
         if (d.ok && d.items && d.items.length > 0) {
@@ -1504,12 +1540,182 @@ window.pickCoinAndClose = function(sym) {
     closeCoinSelectorModal();
 };
 
+const TICKER_ALIAS_GROUPS = {
+    "SPY": ["SPY", "US500", "SP500"],
+    "US500": ["SPY", "US500", "SP500"],
+    "SP500": ["SPY", "US500", "SP500"],
+    "QQQ": ["QQQ", "US100"],
+    "US100": ["QQQ", "US100"],
+    "GOLD": ["GOLD", "XAU", "XAUT", "PAXG"],
+    "XAU": ["GOLD", "XAU", "XAUT", "PAXG"],
+    "XAUT": ["GOLD", "XAU", "XAUT", "PAXG"],
+    "PAXG": ["GOLD", "XAU", "XAUT", "PAXG"]
+};
+
+async function loadTickerStatusForMenu(ex, group, menuEl, activeTkr, isLong) {
+    try {
+        const r = await fetch(`/api/ticker_status?ex=${encodeURIComponent(ex)}&tickers=${encodeURIComponent(group.join(','))}`);
+        const d = await r.json();
+        if (d.ok && d.status && menuEl) {
+            menuEl.innerHTML = group.map(t => {
+                const isAvail = d.status[t] === true;
+                const isActive = (t === activeTkr);
+                const dotClass = isAvail ? 'dot-green' : 'dot-red';
+                const dotTitle = isAvail ? `${t} доступний на ${ex}` : `${t} відсутній на ${ex}`;
+                return `
+                    <div class="custom-ticker-option ${isActive ? 'active' : ''}" data-value="${t}">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <span class="ex-status-dot ${dotClass}" style="width:7px; height:7px; flex-shrink:0;" title="${dotTitle}"></span>
+                            <span>${t}</span>
+                        </div>
+                        ${isActive ? '<span>✓</span>' : ''}
+                    </div>
+                `;
+            }).join("");
+
+            menuEl.querySelectorAll('.custom-ticker-option').forEach(opt => {
+                opt.onclick = (e) => {
+                    e.stopPropagation();
+                    playTactileClick();
+                    if (isLong) {
+                        state.longSymbol = opt.dataset.value;
+                        if ($("longSymbolText")) $("longSymbolText").textContent = state.longSymbol;
+                        const longWrapper = $("longSymbolWrapper");
+                        if (longWrapper) longWrapper.classList.remove("open");
+                    } else {
+                        state.shortSymbol = opt.dataset.value;
+                        if ($("shortSymbolText")) $("shortSymbolText").textContent = state.shortSymbol;
+                        const shortWrapper = $("shortSymbolWrapper");
+                        if (shortWrapper) shortWrapper.classList.remove("open");
+                    }
+                    menuEl.classList.remove("show");
+                    if ($("longCard")) $("longCard").style.zIndex = "100";
+                    if ($("shortCard")) $("shortCard").style.zIndex = "100";
+                    updateTradeButtons();
+                    loadChartHistory();
+                    poll();
+                };
+            });
+        }
+    } catch(err) {
+        console.error("Error loading ticker status:", err);
+    }
+}
+
+function updateCardTickerSelectors() {
+    const sym = (state.symbol || "BTC").toUpperCase();
+    const group = TICKER_ALIAS_GROUPS[sym];
+    
+    const longWrapper = $("longSymbolWrapper");
+    const shortWrapper = $("shortSymbolWrapper");
+
+    if (!group) {
+        state.longSymbol = sym;
+        state.shortSymbol = sym;
+        if (longWrapper) longWrapper.style.display = "none";
+        if (shortWrapper) shortWrapper.style.display = "none";
+        return;
+    }
+
+    // Determine default native ticker for Long exchange
+    let defaultLongTkr = sym;
+    if (state.longEx === "Ondo" && sym === "SPY") defaultLongTkr = "US500";
+    else if ((state.longEx === "Variational" || state.longEx === "Bullet") && sym === "SPY") defaultLongTkr = "US500";
+    else if (state.longEx === "Pacifica" && sym === "SPY") defaultLongTkr = "SP500";
+    else if (state.longEx === "Variational" && sym === "QQQ") defaultLongTkr = "US100";
+
+    // Determine default native ticker for Short exchange
+    let defaultShortTkr = sym;
+    if (state.shortEx === "Ondo" && sym === "SPY") defaultShortTkr = "US500";
+    else if ((state.shortEx === "Variational" || state.shortEx === "Bullet") && sym === "SPY") defaultShortTkr = "US500";
+    else if (state.shortEx === "Pacifica" && sym === "SPY") defaultShortTkr = "SP500";
+    else if (state.shortEx === "Variational" && sym === "QQQ") defaultShortTkr = "US100";
+
+    if (!state.longSymbol || !group.includes(state.longSymbol)) state.longSymbol = defaultLongTkr;
+    if (!state.shortSymbol || !group.includes(state.shortSymbol)) state.shortSymbol = defaultShortTkr;
+
+    // Render Long Custom Ticker Dropdown
+    if (longWrapper) {
+        longWrapper.style.display = "inline-block";
+        if ($("longSymbolText")) $("longSymbolText").textContent = state.longSymbol;
+        const longMenu = $("longSymbolMenu");
+        if (longMenu) {
+            longMenu.innerHTML = group.map(t => `
+                <div class="custom-ticker-option ${t === state.longSymbol ? 'active' : ''}" data-value="${t}">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="ex-status-dot dot-green" style="width:7px; height:7px; flex-shrink:0;"></span>
+                        <span>${t}</span>
+                    </div>
+                    ${t === state.longSymbol ? '<span>✓</span>' : ''}
+                </div>
+            `).join("");
+            loadTickerStatusForMenu(state.longEx, group, longMenu, state.longSymbol, true);
+        }
+        const longTrigger = $("longSymbolTrigger");
+        if (longTrigger) {
+            longTrigger.onclick = (e) => {
+                e.stopPropagation();
+                playTactileClick();
+                const isOpen = longMenu.classList.contains("show");
+                document.querySelectorAll('.custom-ticker-menu').forEach(m => m.classList.remove('show'));
+                document.querySelectorAll('.custom-ticker-wrapper').forEach(w => w.classList.remove('open'));
+                if ($("longCard")) $("longCard").style.zIndex = "100";
+                if ($("shortCard")) $("shortCard").style.zIndex = "100";
+                if (!isOpen) {
+                    longMenu.classList.add("show");
+                    longWrapper.classList.add("open");
+                    if ($("longCard")) $("longCard").style.zIndex = "999999";
+                    loadTickerStatusForMenu(state.longEx, group, longMenu, state.longSymbol, true);
+                }
+            };
+        }
+    }
+
+    // Render Short Custom Ticker Dropdown
+    if (shortWrapper) {
+        shortWrapper.style.display = "inline-block";
+        if ($("shortSymbolText")) $("shortSymbolText").textContent = state.shortSymbol;
+        const shortMenu = $("shortSymbolMenu");
+        if (shortMenu) {
+            shortMenu.innerHTML = group.map(t => `
+                <div class="custom-ticker-option ${t === state.shortSymbol ? 'active' : ''}" data-value="${t}">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="ex-status-dot dot-green" style="width:7px; height:7px; flex-shrink:0;"></span>
+                        <span>${t}</span>
+                    </div>
+                    ${t === state.shortSymbol ? '<span>✓</span>' : ''}
+                </div>
+            `).join("");
+            loadTickerStatusForMenu(state.shortEx, group, shortMenu, state.shortSymbol, false);
+        }
+        const shortTrigger = $("shortSymbolTrigger");
+        if (shortTrigger) {
+            shortTrigger.onclick = (e) => {
+                e.stopPropagation();
+                playTactileClick();
+                const isOpen = shortMenu.classList.contains("show");
+                document.querySelectorAll('.custom-ticker-menu').forEach(m => m.classList.remove('show'));
+                document.querySelectorAll('.custom-ticker-wrapper').forEach(w => w.classList.remove('open'));
+                if ($("longCard")) $("longCard").style.zIndex = "100";
+                if ($("shortCard")) $("shortCard").style.zIndex = "100";
+                if (!isOpen) {
+                    shortMenu.classList.add("show");
+                    shortWrapper.classList.add("open");
+                    if ($("shortCard")) $("shortCard").style.zIndex = "999999";
+                    loadTickerStatusForMenu(state.shortEx, group, shortMenu, state.shortSymbol, false);
+                }
+            };
+        }
+    }
+}
+
 function updateDashboard() {
     if ($("longEx")) state.longEx = $("longEx").value;
     if ($("shortEx")) state.shortEx = $("shortEx").value;
 
     updateUrlState();
     renderMainTitle();
+    updateCardTickerSelectors();
     if ($("longExName")) $("longExName").textContent = state.longEx;
     if ($("shortExName")) $("shortExName").textContent = state.shortEx;
 
@@ -1549,7 +1755,7 @@ const EXCHANGE_ICONS = {
 function getExchangeTradeUrl(ex, symbol) {
     const s = (symbol || "BTC").toUpperCase();
     if (ex === "Ondo") {
-        const ondoSym = (s === "SPY" || s === "SP500_INDEX") ? "US500" : s;
+        const ondoSym = (s === "SPY") ? "US500" : s;
         return `https://app.ondoperps.xyz/trade/perps/${ondoSym}-USD.P`;
     } else if (ex === "RH_Lighter") {
         return `https://robinhoodchain.lighter.xyz/trade/${s}`;
@@ -1568,7 +1774,8 @@ function getExchangeTradeUrl(ex, symbol) {
     } else if (ex === "TxFlow") {
         return `https://app.txflow.com/trade/${s}-USDC`;
     } else if (ex === "Pacifica") {
-        return `https://app.pacifica.fi/trade/${s}`;
+        const pSym = (s === "SPY") ? "SP500" : s;
+        return `https://app.pacifica.fi/trade/${pSym}`;
     }
     return "#";
 }
@@ -1576,18 +1783,19 @@ function getExchangeTradeUrl(ex, symbol) {
 function updateTradeButtons() {
     const longEx = $("longEx") ? $("longEx").value : "Ondo";
     const shortEx = $("shortEx") ? $("shortEx").value : "RH_Lighter";
-    const currentSym = state.symbol || "BTC";
+    const longSym = state.longSymbol || state.symbol || "BTC";
+    const shortSym = state.shortSymbol || state.symbol || "BTC";
 
     const entryContainer = $("entryTradeBtns");
     const exitContainer = $("exitTradeBtns");
 
     if (entryContainer) {
-        const longUrl = getExchangeTradeUrl(longEx, currentSym);
+        const longUrl = getExchangeTradeUrl(longEx, longSym);
         const longIcon = EXCHANGE_ICONS[longEx] || "/static/images/ondo.png";
         const longName = EXCHANGE_NAMES[longEx] || longEx;
 
         entryContainer.innerHTML = `
-            <a class="ex-trade-card-btn" href="${longUrl}" target="_blank" title="Перейти на торгівлю ${currentSym} на ${longName}">
+            <a class="ex-trade-card-btn" href="${longUrl}" target="_blank" title="Перейти на торгівлю ${longSym} на ${longName}">
                 <span class="badge-card-side badge-card-long">LONG</span>
                 <img src="${longIcon}" class="big-ex-icon">
                 <span class="ex-card-title">${longName} ↗</span>
@@ -1602,12 +1810,12 @@ function updateTradeButtons() {
     }
 
     if (exitContainer) {
-        const shortUrl = getExchangeTradeUrl(shortEx, currentSym);
+        const shortUrl = getExchangeTradeUrl(shortEx, shortSym);
         const shortIcon = EXCHANGE_ICONS[shortEx] || "/static/images/lighter.png";
         const shortName = EXCHANGE_NAMES[shortEx] || shortEx;
 
         exitContainer.innerHTML = `
-            <a class="ex-trade-card-btn" href="${shortUrl}" target="_blank" title="Перейти на торгівлю ${currentSym} на ${shortName}">
+            <a class="ex-trade-card-btn" href="${shortUrl}" target="_blank" title="Перейти на торгівлю ${shortSym} на ${shortName}">
                 <span class="badge-card-side badge-card-short">SHORT</span>
                 <img src="${shortIcon}" class="big-ex-icon">
                 <span class="ex-card-title">${shortName} ↗</span>
@@ -1897,7 +2105,12 @@ if ($("saveAlerts")) $("saveAlerts").onclick = () => {
     const exit = (exitVal !== null && !isNaN(exitVal)) ? exitVal : null;
 
     if (entry !== null || exit !== null) {
-        symbolAlerts[state.symbol] = { entry: entry, exit: exit };
+        symbolAlerts[state.symbol] = {
+            entry: entry,
+            exit: exit,
+            longEx: state.longEx,
+            shortEx: state.shortEx
+        };
     } else {
         delete symbolAlerts[state.symbol];
     }

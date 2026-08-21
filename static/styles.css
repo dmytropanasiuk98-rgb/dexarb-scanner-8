@@ -2828,3 +2828,101 @@ select option {
     color: #38bdf8 !important;
     border: 1px solid rgba(56, 189, 248, 0.3) !important;
 }
+
+.metrics-row {
+    position: relative;
+    z-index: 100;
+}
+
+.metric-box {
+    position: relative;
+    z-index: 100;
+}
+
+.custom-ticker-wrapper {
+    position: relative;
+    display: inline-block;
+    user-select: none;
+    z-index: 99999 !important;
+}
+
+.custom-ticker-wrapper.open {
+    z-index: 99999 !important;
+}
+
+.custom-ticker-trigger {
+    background: rgba(15, 23, 42, 0.9);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-ticker-trigger:hover {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+
+.custom-ticker-arrow {
+    font-size: 9px;
+    color: #38bdf8;
+    transition: transform 0.2s ease;
+}
+
+.custom-ticker-wrapper.open .custom-ticker-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-ticker-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 105px;
+    background: rgba(15, 23, 42, 0.98) !important;
+    border: 1px solid rgba(56, 189, 248, 0.5);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85);
+    z-index: 999999 !important;
+    padding: 4px;
+    backdrop-filter: blur(16px);
+    animation: fadeInScale 0.15s ease-out;
+    pointer-events: auto !important;
+}
+
+.custom-ticker-menu.show {
+    display: block;
+}
+
+.custom-ticker-option {
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #e2e8f0;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s ease;
+}
+
+.custom-ticker-option:hover {
+    background: rgba(56, 189, 248, 0.18);
+    color: #38bdf8;
+}
+
+.custom-ticker-option.active {
+    background: rgba(56, 189, 248, 0.25);
+    color: #38bdf8;
+    border-left: 2px solid #38bdf8;
+}

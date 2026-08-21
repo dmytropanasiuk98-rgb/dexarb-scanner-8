@@ -110,17 +110,37 @@
       </div>
 
       <div class="metrics-row">
-        <div class="metric-box">
+        <div class="metric-box" id="longCard" style="position:relative;">
+          <span id="longCardDot" class="ex-status-dot dot-red" style="position:absolute; top:12px; right:12px; z-index:5;" title="Перевірка монети..."></span>
           <div class="trade-btns-container" id="entryTradeBtns"></div>
           <div class="metric-info">
-            <div class="label">ENTRY (IN)</div>
+            <div class="label-row" style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+              <span class="label">ENTRY</span>
+              <div class="custom-ticker-wrapper" id="longSymbolWrapper" style="display:none;">
+                <div class="custom-ticker-trigger" id="longSymbolTrigger">
+                  <span id="longSymbolText">SPY</span>
+                  <span class="custom-ticker-arrow">▾</span>
+                </div>
+                <div class="custom-ticker-menu" id="longSymbolMenu"></div>
+              </div>
+            </div>
             <div id="inVal" class="value green">0.00%</div>
           </div>
         </div>
-        <div class="metric-box">
+        <div class="metric-box" id="shortCard" style="position:relative;">
+          <span id="shortCardDot" class="ex-status-dot dot-red" style="position:absolute; top:12px; right:12px; z-index:5;" title="Перевірка монети..."></span>
           <div class="trade-btns-container" id="exitTradeBtns"></div>
           <div class="metric-info">
-            <div class="label">EXIT (OUT)</div>
+            <div class="label-row" style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+              <span class="label">EXIT</span>
+              <div class="custom-ticker-wrapper" id="shortSymbolWrapper" style="display:none;">
+                <div class="custom-ticker-trigger" id="shortSymbolTrigger">
+                  <span id="shortSymbolText">SPY</span>
+                  <span class="custom-ticker-arrow">▾</span>
+                </div>
+                <div class="custom-ticker-menu" id="shortSymbolMenu"></div>
+              </div>
+            </div>
             <div id="outVal" class="value red">0.00%</div>
           </div>
         </div>
@@ -341,7 +361,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=57000"></script>
+  <script src="/static/app.js?v=72000"></script>
 </body>
 
 </html>
