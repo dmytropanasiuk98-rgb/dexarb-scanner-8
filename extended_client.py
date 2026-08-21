@@ -76,34 +76,39 @@ class ExtendedClient:
 
     async def fetch_orderbook(self, sym: str) -> Tuple[float, float]:
         """Fetches live orderbook (bid, ask) for a specific symbol."""
+        s_upper = sym.upper().strip()
+        if s_upper in self.prices and self.prices[s_upper][0] > 0:
+            return self.prices[s_upper]
         try:
             if self.session is None or self.session.closed:
                 conn = aiohttp.TCPConnector(ssl=False)
                 self.session = aiohttp.ClientSession(connector=conn, headers={'User-Agent': 'Mozilla/5.0'})
             
-            url = f"{EXTENDED_BASE_URL}/info/markets/{sym.upper()}-USD/orderbook"
-            async with self.session.get(url, timeout=3) as r:
-                if r.status == 200:
-                    res = await r.json()
-                    data = res.get("data", {})
-                    bids = data.get("bid", [])
-                    asks = data.get("ask", [])
-                    if bids and asks:
-                        bid = float(bids[0]["price"])
-                        ask = float(asks[0]["price"])
-                        if bid > 0 and ask > 0 and ask >= bid:
-                            self.prices[sym.upper()] = (bid, ask)
-                            return bid, ask
+            for path in [f"{s_upper}-USD", f"{s_upper}_24_5-USD"]:
+                url = f"{EXTENDED_BASE_URL}/info/markets/{path}/orderbook"
+                async with self.session.get(url, timeout=3) as r:
+                    if r.status == 200:
+                        res = await r.json()
+                        data = res.get("data", {})
+                        bids = data.get("bid") or data.get("bids") or []
+                        asks = data.get("ask") or data.get("asks") or []
+                        if bids and asks:
+                            bid = float(bids[0]["price"]) if isinstance(bids[0], dict) else float(bids[0][0])
+                            ask = float(asks[0]["price"]) if isinstance(asks[0], dict) else float(asks[0][0])
+                            if bid > 0 and ask > 0 and ask >= bid:
+                                self.prices[s_upper] = (bid, ask)
+                                return bid, ask
         except Exception as e:
-            logger.debug(f"Extended fetch orderbook error for {sym}: {e}")
-        return self.prices.get(sym.upper(), (0.0, 0.0))
+            logger.debug(f"Extended fetch orderbook error for {s_upper}: {e}")
+        return self.prices.get(s_upper, (0.0, 0.0))
 
     async def _orderbook_poll_loop(self):
-        """Poll orderbook for top active symbols every 1.5s."""
-        top_symbols = ["BTC", "ETH", "SOL", "ZEC", "HYPE", "QQQ", "SPY", "GOOGL", "TSLA", "NVDA", "AMD", "MU", "SUI", "XRP", "ORCL"]
+        """Poll orderbook for active stock and crypto symbols every 1.5s."""
+        top_symbols = ["BTC", "ETH", "SOL", "PLTR", "MSTR", "HOOD", "COIN", "TSLA", "NVDA", "QQQ", "SPY", "GOOGL", "AMD", "META", "AAPL", "MSFT", "AMZN", "NFLX", "SUI", "XRP", "ORCL", "GOLD", "XAU"]
         while self.running:
             try:
-                tasks = [self.fetch_orderbook(sym) for sym in top_symbols]
+                current_syms = set(top_symbols) | set(self.prices.keys())
+                tasks = [self.fetch_orderbook(sym) for sym in current_syms]
                 await asyncio.gather(*tasks, return_exceptions=True)
             except Exception as e:
                 logger.error(f"Extended orderbook poll error: {e}")

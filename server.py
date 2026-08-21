@@ -242,25 +242,26 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.post("/api/auth/telegram")
 async def api_auth_telegram(payload: TelegramAuthPayload):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn, ph, is_pg, is_pooled = get_db()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(f"""
         INSERT INTO users (user_id, first_name, last_name, username, photo_url, auth_date)
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
         ON CONFLICT(user_id) DO UPDATE SET
-            first_name=excluded.first_name,
-            last_name=excluded.last_name,
-            username=excluded.username,
-            photo_url=excluded.photo_url,
-            auth_date=excluded.auth_date
+            first_name=EXCLUDED.first_name,
+            last_name=EXCLUDED.last_name,
+            username=EXCLUDED.username,
+            photo_url=EXCLUDED.photo_url,
+            auth_date=EXCLUDED.auth_date
         """, (payload.user_id, payload.first_name, payload.last_name, payload.username, payload.photo_url, payload.auth_date))
         
-        cursor.execute("SELECT settings_json FROM user_settings WHERE user_id = ?", (payload.user_id,))
+        cursor.execute(f"SELECT settings_json FROM user_settings WHERE user_id = {ph}", (payload.user_id,))
         row = cursor.fetchone()
-        settings = json.loads(row[0]) if row else {}
+        settings = json.loads(row[0]) if row and row[0] else {}
         
-        conn.commit()
-        conn.close()
+        if not is_pg:
+            conn.commit()
+        close_db(conn, is_pooled)
         return {"ok": True, "user": payload.dict(), "settings": settings}
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
@@ -270,12 +271,12 @@ async def api_get_user_settings(user_id: Optional[int] = 0):
     try:
         if not user_id:
             return {"ok": True, "settings": {}}
-        conn = sqlite3.connect(USER_DB_PATH)
+        conn, ph, is_pg, is_pooled = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT settings_json FROM user_settings WHERE user_id = ?", (user_id,))
+        cursor.execute(f"SELECT settings_json FROM user_settings WHERE user_id = {ph}", (user_id,))
         row = cursor.fetchone()
-        conn.close()
-        settings = json.loads(row[0]) if row else {}
+        close_db(conn, is_pooled)
+        settings = json.loads(row[0]) if row and row[0] else {}
         return {"ok": True, "settings": settings}
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
@@ -283,18 +284,19 @@ async def api_get_user_settings(user_id: Optional[int] = 0):
 @app.post("/api/user/settings")
 async def api_save_user_settings(payload: UserSettingsPayload):
     try:
-        conn = sqlite3.connect(USER_DB_PATH)
+        conn, ph, is_pg, is_pooled = get_db()
         cursor = conn.cursor()
         settings_str = json.dumps(payload.settings)
-        cursor.execute("""
+        cursor.execute(f"""
         INSERT INTO user_settings (user_id, settings_json)
-        VALUES (?, ?)
+        VALUES ({ph}, {ph})
         ON CONFLICT(user_id) DO UPDATE SET
-            settings_json=excluded.settings_json,
+            settings_json=EXCLUDED.settings_json,
             updated_at=CURRENT_TIMESTAMP
         """, (payload.user_id, settings_str))
-        conn.commit()
-        conn.close()
+        if not is_pg:
+            conn.commit()
+        close_db(conn, is_pooled)
         return {"ok": True}
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
@@ -549,6 +551,9 @@ async def fetch_price_raw(ex: str, sym: str) -> Tuple[float, float]:
 
         elif ex in ["Extended", "EXTENDET"]:
             bid, ask = extended_client.client.get_price(actual_sym)
+            if bid > 0 and ask > 0:
+                return bid, ask
+            bid, ask = await extended_client.client.fetch_orderbook(actual_sym)
             return bid, ask
 
         elif ex == "Paradex":
@@ -808,7 +813,7 @@ async def history_logger_loop():
             await asyncio.sleep(5)
             records = []
             now_ts = int(time.time())
-            exchanges_list = ["Ondo", "RH_Lighter", "Variational", "Extended"]
+            exchanges_list = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow", "Pacifica"]
             pairs = [(e1, e2) for e1 in exchanges_list for e2 in exchanges_list if e1 != e2]
             
             for lex, sex in pairs:
