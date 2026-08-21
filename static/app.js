@@ -1213,6 +1213,14 @@ async function scan() {
                             });
                             newPinAdded = true;
                         }
+                    } else {
+                        activeSignalsMap[it.symbol].spread = spr;
+                        activeSignalsMap[it.symbol].type = triggeredType;
+                    }
+                } else {
+                    // Auto-disarm signal when price/spread converges back below alert threshold!
+                    if (activeSignalsMap[it.symbol]) {
+                        delete activeSignalsMap[it.symbol];
                     }
                 }
             });
