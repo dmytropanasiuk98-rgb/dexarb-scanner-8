@@ -853,6 +853,59 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+let hiddenSymbols = [];
+try {
+    hiddenSymbols = JSON.parse(localStorage.getItem("hiddenSymbols") || "[]");
+    if (!Array.isArray(hiddenSymbols)) hiddenSymbols = [];
+} catch (e) {
+    hiddenSymbols = [];
+}
+
+window.toggleHideSymbol = (sym, event) => {
+    if (event) event.stopPropagation();
+    playTactileClick();
+    if (!sym) return;
+
+    if (hiddenSymbols.includes(sym)) {
+        hiddenSymbols = hiddenSymbols.filter(s => s !== sym);
+    } else {
+        hiddenSymbols.push(sym);
+    }
+    localStorage.setItem("hiddenSymbols", JSON.stringify(hiddenSymbols));
+    renderScanItems(lastScanItems);
+    renderHiddenCoinsSettingsUI();
+};
+
+window.unhideAllCoins = () => {
+    playTactileClick();
+    hiddenSymbols = [];
+    localStorage.setItem("hiddenSymbols", "[]");
+    renderScanItems(lastScanItems);
+    renderHiddenCoinsSettingsUI();
+};
+
+function renderHiddenCoinsSettingsUI() {
+    const listEl = $("hiddenCoinsList");
+    const countEl = $("hiddenCoinsCount");
+    const unhideBtn = $("unhideAllCoinsBtn");
+    if (!listEl) return;
+
+    if (countEl) countEl.textContent = hiddenSymbols.length;
+    if (unhideBtn) unhideBtn.style.display = hiddenSymbols.length > 0 ? "inline-block" : "none";
+
+    if (hiddenSymbols.length === 0) {
+        listEl.innerHTML = `<span class="no-hidden-txt">Немає прихованих монет</span>`;
+        return;
+    }
+
+    listEl.innerHTML = hiddenSymbols.map(sym => `
+        <span class="hidden-coin-chip">
+            <b>${sym}</b>
+            <button class="btn-chip-remove" onclick="toggleHideSymbol('${sym}', event)" title="Повернути ${sym} у відстежування">✕</button>
+        </span>
+    `).join("");
+}
+
 window.toggleVariations = (sym, event) => {
     if (event) event.stopPropagation();
     playTactileClick();
@@ -895,6 +948,7 @@ function renderScanItems(rawItems) {
     });
 
     items = items.filter(it => {
+        if (hiddenSymbols.includes(it.symbol)) return false;
         const isPinned = pinnedSymbols.includes(it.symbol);
         const isSignaling = !!activeSignalsMap[it.symbol];
         if (isPinned || isSignaling) return true;
@@ -964,7 +1018,9 @@ function renderScanItems(rawItems) {
             <td class="${sepClass}">
                 <button class="btn-pin ${isPinned ? 'pinned' : ''}" onclick="togglePin('${it.symbol}', '${l_ex}', '${s_ex}', event)" title="${isPinned ? 'Відкріпити монету' : 'Закріпити точну пару монети вгорі'}">📌</button>
                 <span class="sym-link" onclick="selectSymbol('${it.symbol}', '${l_ex}', '${s_ex}')" title="Клікніть для аналізу монети ${it.symbol}">${it.symbol}</span>
-                <button class="btn-expand ${isExpanded ? 'expanded' : ''}" onclick="toggleVariations('${it.symbol}', event)" title="Показати варіації спредів по ${it.symbol}">▾</button>
+                <button class="btn-hide-coin" onclick="toggleHideSymbol('${it.symbol}', event)" title="Приховати монету ${it.symbol} з відстежування 👁️">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
                 ${exTag}
             </td>
             <td class="${sepClass} ${it.is_missing ? '' : (it.entry_pct > 0 ? 'green' : 'red')}">${spreadTxt}</td>
@@ -1554,6 +1610,8 @@ function updateSettingsModalUI() {
     if ($("globalSpreadAlertToggle")) $("globalSpreadAlertToggle").checked = state.globalSpreadAlert;
     if ($("globalFundingAlertToggle")) $("globalFundingAlertToggle").checked = state.globalFundingAlert;
     if ($("globalCombinedAlertToggle")) $("globalCombinedAlertToggle").checked = state.globalCombinedAlert;
+
+    renderHiddenCoinsSettingsUI();
 }
 
 window.openSettingsDrawer = function() {

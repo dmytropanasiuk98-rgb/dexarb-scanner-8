@@ -220,6 +220,17 @@
               <span class="slider round"></span>
             </label>
           </div>
+
+          <!-- Hidden Coins Section -->
+          <div class="field" style="margin-top: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <span class="settings-section-title" style="margin: 0;">👁️ Приховані монети (<span id="hiddenCoinsCount">0</span>)</span>
+              <button id="unhideAllCoinsBtn" class="btn-mini btn-secondary" style="font-size: 11px; padding: 2px 8px; display: none;" onclick="unhideAllCoins()">Показати всі</button>
+            </div>
+            <div id="hiddenCoinsList" class="hidden-coins-chips">
+              <span class="no-hidden-txt">Немає прихованих монет</span>
+            </div>
+          </div>
         </div>
 
         <!-- Right Column: Exchanges to Track (with Icons) -->
@@ -312,7 +323,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=42000"></script>
+  <script src="/static/app.js?v=43000"></script>
 </body>
 
 </html>
