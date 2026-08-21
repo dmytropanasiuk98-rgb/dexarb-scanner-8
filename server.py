@@ -22,34 +22,51 @@ USER_DB_PATH = "arb_dashboard.db"
 
 USE_PG = False
 PG_DSN = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+_pg_pool = None
 
 if PG_DSN:
     if PG_DSN.startswith("postgres://"):
         PG_DSN = PG_DSN.replace("postgres://", "postgresql://", 1)
     try:
         import psycopg2
-        test_conn = psycopg2.connect(PG_DSN, connect_timeout=5)
-        test_conn.close()
+        import psycopg2.pool
+        _pg_pool = psycopg2.pool.ThreadedConnectionPool(1, 10, PG_DSN, connect_timeout=3)
         USE_PG = True
-        logger.info("Connected to PostgreSQL cloud database successfully!")
+        logger.info("Connected to PostgreSQL cloud database pool successfully!")
     except Exception as e:
-        logger.warning(f"Could not connect to PostgreSQL ({e}), falling back to local SQLite.")
+        logger.warning(f"Could not connect to PostgreSQL pool ({e}), falling back to local SQLite.")
         USE_PG = False
 
 def get_db():
-    if USE_PG and PG_DSN:
+    global _pg_pool
+    if USE_PG and _pg_pool:
         try:
-            import psycopg2
-            conn = psycopg2.connect(PG_DSN, connect_timeout=4)
+            conn = _pg_pool.getconn()
             conn.autocommit = True
-            return conn, "%s", True
+            return conn, "%s", True, True
         except Exception as e:
-            logger.warning(f"PostgreSQL connection failed ({e}), falling back to SQLite.")
-    conn = sqlite3.connect(HISTORY_DB_PATH)
-    return conn, "?", False
+            logger.warning(f"PostgreSQL getconn failed ({e}), falling back to SQLite.")
+    conn = sqlite3.connect(HISTORY_DB_PATH, timeout=5)
+    return conn, "?", False, False
+
+def close_db(conn, is_pooled=False):
+    global _pg_pool
+    if is_pooled and _pg_pool:
+        try:
+            _pg_pool.putconn(conn)
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    else:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 def init_history_db():
-    conn, ph, is_pg = get_db()
+    conn, ph, is_pg, is_pooled = get_db()
     cur = conn.cursor()
     if is_pg:
         cur.execute("""
@@ -91,11 +108,11 @@ def init_history_db():
             cur.execute("ALTER TABLE spread_history ADD COLUMN short_funding REAL DEFAULT 0.0")
         except Exception:
             pass
-    conn.commit()
-    conn.close()
+        conn.commit()
+    close_db(conn, is_pooled)
 
 def init_user_db():
-    conn, ph, is_pg = get_db()
+    conn, ph, is_pg, is_pooled = get_db()
     cursor = conn.cursor()
     if is_pg:
         cursor.execute("""
@@ -137,8 +154,8 @@ def init_user_db():
             FOREIGN KEY (user_id) REFERENCES users(user_id)
         )
         """)
-    conn.commit()
-    conn.close()
+        conn.commit()
+    close_db(conn, is_pooled)
 
 init_history_db()
 init_user_db()
@@ -757,15 +774,21 @@ async def history_logger_loop():
                             records.append((now_ts, s, lex, sex, round(entry, 4), round(exit_, 4), la, sb, round(l_fr, 4), round(s_fr, 4)))
             
             if records:
-                conn, ph, is_pg = get_db()
-                cur = conn.cursor()
-                query = f"""
-                    INSERT INTO spread_history (timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding)
-                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
-                """
-                cur.executemany(query, records)
-                conn.commit()
-                conn.close()
+                def _do_insert():
+                    try:
+                        conn, ph, is_pg, is_pooled = get_db()
+                        cur = conn.cursor()
+                        query = f"""
+                            INSERT INTO spread_history (timestamp, symbol, long_ex, short_ex, entry_pct, exit_pct, long_ask, short_bid, long_funding, short_funding)
+                            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+                        """
+                        cur.executemany(query, records)
+                        if not is_pg:
+                            conn.commit()
+                        close_db(conn, is_pooled)
+                    except Exception as e:
+                        logger.error(f"Error inserting history: {e}")
+                await asyncio.to_thread(_do_insert)
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -777,24 +800,29 @@ async def history_cleanup_loop():
         try:
             await asyncio.sleep(3600)  # Check every hour
             thirty_days_ago = int(time.time()) - (30 * 86400)
-            conn, ph, is_pg = get_db()
-            cur = conn.cursor()
-            cur.execute(f"DELETE FROM spread_history WHERE timestamp < {ph}", (thirty_days_ago,))
-            deleted_cnt = cur.rowcount if hasattr(cur, 'rowcount') else 0
-            conn.commit()
-            conn.close()
-            if deleted_cnt > 0:
-                logger.info(f"Cleaned up {deleted_cnt} history records older than 30 days.")
+            def _do_cleanup():
+                try:
+                    conn, ph, is_pg, is_pooled = get_db()
+                    cur = conn.cursor()
+                    cur.execute(f"DELETE FROM spread_history WHERE timestamp < {ph}", (thirty_days_ago,))
+                    deleted_cnt = cur.rowcount if hasattr(cur, 'rowcount') else 0
+                    if not is_pg:
+                        conn.commit()
+                    close_db(conn, is_pooled)
+                    if deleted_cnt > 0:
+                        logger.info(f"Cleaned up {deleted_cnt} history records older than 30 days.")
+                except Exception as e:
+                    logger.error(f"History cleanup query error: {e}")
+            await asyncio.to_thread(_do_cleanup)
         except asyncio.CancelledError:
             break
         except Exception as e:
             logger.error(f"History cleanup error: {e}")
 
-@app.get("/api/history")
-async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = None, short_ex: Optional[str] = None, limit: int = 1000):
+def _sync_fetch_history(symbol, long_ex, short_ex, limit):
     rows = []
     try:
-        conn, ph, is_pg = get_db()
+        conn, ph, is_pg, is_pooled = get_db()
         cur = conn.cursor()
         if symbol and long_ex and short_ex:
             cur.execute(f"""
@@ -830,10 +858,16 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
                 ORDER BY id DESC LIMIT {ph}
             """, (limit,))
             rows = cur.fetchall()
-        conn.close()
+        close_db(conn, is_pooled)
     except Exception as e:
         logger.error(f"Error querying history DB: {e}")
         rows = []
+    return rows
+
+@app.get("/api/history")
+async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = None, short_ex: Optional[str] = None, limit: int = 1000):
+    try:
+        rows = await asyncio.to_thread(_sync_fetch_history, symbol, long_ex, short_ex, limit)
 
         # If records for a requested symbol/exchange pair are sparse (< 60 points), synthesize a smooth 1-hour backfilled baseline ONLY IF BOTH PRICES ARE VALID (> 0)!
         if symbol and long_ex and short_ex and len(rows) < 60:
