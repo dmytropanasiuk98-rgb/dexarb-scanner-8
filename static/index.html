@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <title>DEXARB Pro + Alerts</title>
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
-  <link rel="stylesheet" href="/static/styles.css?v=54000">
+  <link rel="stylesheet" href="/static/styles.css?v=88000">
 </head>
 
 <body>
@@ -213,42 +213,6 @@
             </div>
           </div>
 
-          <div class="settings-divider"></div>
-          <div class="settings-section-title">🔔 Загальні Звукові Алерти</div>
-
-          <div class="field-toggle-row">
-            <div class="toggle-info">
-              <span class="toggle-title">🔔 Алерт за Спредом</span>
-              <span class="toggle-desc">Сигнал якщо спред >= порогу</span>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="globalSpreadAlertToggle">
-              <span class="slider round"></span>
-            </label>
-          </div>
-
-          <div class="field-toggle-row">
-            <div class="toggle-info">
-              <span class="toggle-title">⚡ Алерт за Фандінгом</span>
-              <span class="toggle-desc">Сигнал якщо Net APR >= порогу</span>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="globalFundingAlertToggle">
-              <span class="slider round"></span>
-            </label>
-          </div>
-
-          <div class="field-toggle-row">
-            <div class="toggle-info">
-              <span class="toggle-title">🔗 Комбінований (Спред + Фандінг)</span>
-              <span class="toggle-desc">Сигнал ТІЛЬКИ якщо досягнуті ОБИДВА пороги</span>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="globalCombinedAlertToggle">
-              <span class="slider round"></span>
-            </label>
-          </div>
-
           <!-- Hidden Coins Section -->
           <div class="field" style="margin-top: 14px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
@@ -320,22 +284,117 @@
     </div>
   </div>
 
-  <div id="alertModal" class="modal">
-    <div class="modal-content card">
-      <h3 id="alertModalTitle">Звукове сповіщення 🔔</h3>
-      <div class="field">
-        <label>Грати звук, якщо ENTRY (IN) >= %:</label>
-        <input type="number" id="entryAlertLevel" placeholder="Вимкнено" step="0.01">
+  <!-- Alerts Settings Drawer -->
+  <div id="alertModal" class="drawer-modal" style="display: none;">
+    <div class="settings-drawer alert-settings-drawer">
+      <div class="drawer-header">
+        <h3>Сповіщення та Алерти 🔔 <span class="header-subtitle" id="alertModalSubtitle" style="font-size: 13px; color: #94a3b8; font-weight: 500;">(Налаштування)</span></h3>
+        <button id="closeAlertsX" class="btn-drawer-close" title="Закрити">✕</button>
       </div>
-      <div class="field">
-        <label>Грати звук, якщо EXIT (OUT) >= %:</label>
-        <input type="number" id="exitAlertLevel" placeholder="Вимкнено" step="0.01">
+
+      <div class="drawer-body">
+        <!-- Top 2-Column Row: Left = Per-Coin Alert, Right = Global System Alerts -->
+        <div class="drawer-grid-2col" style="margin-bottom: 20px;">
+          
+          <!-- Left Column (50%): Per-Symbol Alert Settings -->
+          <div class="drawer-col">
+            <div class="settings-section-title" style="margin-bottom: 10px;">
+              🎯 Сповіщення для монети: <b id="alertModalActiveSymbol" style="color:#60a5fa;">QQQ</b>
+            </div>
+            <div class="settings-card-group" style="display:flex; flex-direction:column; gap:10px; padding:12px; background:rgba(30, 41, 59, 0.5); border-radius:12px; border:1px solid rgba(148, 163, 184, 0.15);">
+              <div class="field-item">
+                <label style="font-size:12px; font-weight:600; color:#cbd5e1; display:flex; justify-content:space-between; margin-bottom:6px;">
+                  <span>Поріг ENTRY (IN) >= %:</span>
+                  <span style="color:#94a3b8; font-weight:400; font-size:11px;">Вхід</span>
+                </label>
+                <div class="custom-number-input">
+                  <button type="button" class="btn-step-input" onmousedown="startStepHold('entryAlertLevel', -0.05)" onmouseleave="clearStepHold()" ontouchstart="startStepHold('entryAlertLevel', -0.05)" ontouchend="clearStepHold()" title="Зменшити поріг входу">−</button>
+                  <input type="number" id="entryAlertLevel" placeholder="Вимкнено" step="0.01">
+                  <button type="button" class="btn-step-input" onmousedown="startStepHold('entryAlertLevel', 0.05)" onmouseleave="clearStepHold()" ontouchstart="startStepHold('entryAlertLevel', 0.05)" ontouchend="clearStepHold()" title="Збільшити поріг входу">+</button>
+                </div>
+              </div>
+
+              <div class="field-item">
+                <label style="font-size:12px; font-weight:600; color:#cbd5e1; display:flex; justify-content:space-between; margin-bottom:6px;">
+                  <span>Поріг EXIT (OUT) >= %:</span>
+                  <span style="color:#94a3b8; font-weight:400; font-size:11px;">Вихід</span>
+                </label>
+                <div class="custom-number-input">
+                  <button type="button" class="btn-step-input" onmousedown="startStepHold('exitAlertLevel', -0.05)" onmouseleave="clearStepHold()" ontouchstart="startStepHold('exitAlertLevel', -0.05)" ontouchend="clearStepHold()" title="Зменшити поріг виходу">−</button>
+                  <input type="number" id="exitAlertLevel" placeholder="Вимкнено" step="0.01">
+                  <button type="button" class="btn-step-input" onmousedown="startStepHold('exitAlertLevel', 0.05)" onmouseleave="clearStepHold()" ontouchstart="startStepHold('exitAlertLevel', 0.05)" ontouchend="clearStepHold()" title="Збільшити поріг виходу">+</button>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:6px; margin-top:2px;">
+                <button id="saveAlerts" class="btn-primary" style="flex:1; height:34px; font-size:12px; font-weight:700;">Зберегти 🔔</button>
+                <button id="clearCurrentAlertBtn" class="btn-secondary" style="height:34px; padding:0 10px; background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4); color:#fca5a5; font-size:12px; font-weight:600;" title="Очистити алерт для цієї монети">Видалити</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column (50%): Global System Alerts -->
+          <div class="drawer-col">
+            <div class="settings-section-title" style="margin-bottom: 10px;">
+              🔔 Загальні системні алерти
+            </div>
+            <div class="settings-card-group" style="display:flex; flex-direction:column; gap:8px;">
+              <div class="field-toggle-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:rgba(30, 41, 59, 0.5); border-radius:10px; border:1px solid rgba(148, 163, 184, 0.15);">
+                <div class="toggle-info">
+                  <span class="toggle-title" style="font-size:12px; font-weight:600; color:#fff; display:block;">🔔 Алерт за Спредом</span>
+                  <span class="toggle-desc" style="font-size:11px; color:#94a3b8;">Сигнал якщо спред >= порогу</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="globalSpreadAlertToggle">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <div class="field-toggle-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:rgba(30, 41, 59, 0.5); border-radius:10px; border:1px solid rgba(148, 163, 184, 0.15);">
+                <div class="toggle-info">
+                  <span class="toggle-title" style="font-size:12px; font-weight:600; color:#fff; display:block;">⚡ Алерт за Фандінгом</span>
+                  <span class="toggle-desc" style="font-size:11px; color:#94a3b8;">Сигнал якщо Net APR >= порогу</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="globalFundingAlertToggle">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
+              <div class="field-toggle-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:rgba(30, 41, 59, 0.5); border-radius:10px; border:1px solid rgba(148, 163, 184, 0.15);">
+                <div class="toggle-info">
+                  <span class="toggle-title" style="font-size:12px; font-weight:600; color:#fff; display:block;">🔗 Комбінований алерт</span>
+                  <span class="toggle-desc" style="font-size:11px; color:#94a3b8;">Обидва пороги (спред + фандінг)</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="globalCombinedAlertToggle">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bottom Full Width Section: Active Configured Symbol Alerts List -->
+        <div class="drawer-section">
+          <div class="settings-section-title" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <span>📋 Встановлені алерти по монетах (<span id="activeAlertsCount" style="color:#60a5fa;">0</span>)</span>
+          </div>
+          <div id="activeAlertsList" class="active-alerts-list">
+            <!-- Rendered dynamically by JS -->
+          </div>
+        </div>
+
       </div>
-      <div class="modal-buttons">
-        <button id="saveAlerts" class="btn-primary">Зберегти</button>
-        <button id="closeAlerts" class="btn-secondary">Закрити</button>
+
+      <div class="modal-buttons drawer-footer" style="padding:16px 20px; border-top:1px solid rgba(148, 163, 184, 0.15); display:flex; gap:10px;">
+        <button id="saveGlobalAlertsBtn" class="btn-primary" style="flex:1; height:42px; font-size:14px; font-weight:700;">Зберегти все 🔔</button>
+        <button id="closeAlerts" class="btn-secondary" style="height:42px; padding:0 20px; font-size:14px;">Закрити</button>
       </div>
     </div>
+  </div>
+
   <!-- Single Coin Selector Modal / Drawer -->
   <div id="coinSelectorModal" class="drawer-modal" style="display: none;">
     <div class="settings-drawer coin-selector-drawer">
@@ -361,7 +420,7 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=72000"></script>
+  <script src="/static/app.js?v=88000"></script>
 </body>
 
 </html>

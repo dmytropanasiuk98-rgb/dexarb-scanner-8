@@ -2136,6 +2136,59 @@ tr.pinned-row td:first-child {
     filter: drop-shadow(0 0 5px #eab308);
 }
 
+/* Header Pin / Favorite Button */
+.btn-header-pin {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1.5px solid rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.btn-header-pin:hover {
+    background: rgba(55, 115, 245, 0.2);
+    border-color: rgba(55, 115, 245, 0.6);
+    color: #ffffff;
+    transform: translateY(-1px) scale(1.03);
+    box-shadow: 0 6px 16px rgba(55, 115, 245, 0.3);
+}
+
+.btn-header-pin:active {
+    transform: translateY(0) scale(0.97);
+}
+
+.btn-header-pin.pinned {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.25) 0%, rgba(30, 41, 59, 0.9) 100%);
+    border-color: rgba(234, 179, 8, 0.7);
+    color: #fef08a;
+    box-shadow: 0 0 14px rgba(234, 179, 8, 0.35);
+}
+
+.btn-header-pin.pinned:hover {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.35) 0%, rgba(30, 41, 59, 0.95) 100%);
+    border-color: rgba(234, 179, 8, 0.9);
+    color: #ffffff;
+    box-shadow: 0 0 18px rgba(234, 179, 8, 0.5);
+}
+
+.btn-header-pin .pin-icon {
+    font-size: 14px;
+    transition: transform 0.2s ease;
+}
+
+.btn-header-pin:hover .pin-icon {
+    transform: rotate(-15deg) scale(1.15);
+}
+
 /* Professional Select Dropdowns for Exchanges - Matching Symbol Search */
 select {
     height: 38px;
@@ -2937,4 +2990,130 @@ select option {
     background: rgba(56, 189, 248, 0.25);
     color: #38bdf8;
     border-left: 2px solid #38bdf8;
+}
+
+/* Active Alerts List Cards inside Alert Drawer */
+.alert-settings-drawer {
+    width: 680px;
+    max-width: 95vw;
+}
+
+.active-alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.no-alerts-msg {
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+    padding: 16px;
+    background: rgba(30, 41, 59, 0.3);
+    border: 1px dashed rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+}
+
+.active-alert-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.active-alert-card:hover {
+    border-color: rgba(96, 165, 250, 0.5);
+    background: rgba(30, 41, 59, 0.9);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.active-alert-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.active-alert-symbol {
+    font-size: 14px;
+    font-weight: 800;
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(55, 115, 245, 0.3) 0%, rgba(30, 41, 59, 0.9) 100%);
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(55, 115, 245, 0.4);
+}
+
+.active-alert-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.active-alert-exchanges {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.active-alert-thresholds {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.alert-thresh-in {
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.alert-thresh-out {
+    color: #f87171;
+    font-weight: 600;
+}
+
+.active-alert-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-alert-edit {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(55, 115, 245, 0.2);
+    border: 1px solid rgba(55, 115, 245, 0.4);
+    color: #60a5fa;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-alert-edit:hover {
+    background: rgba(55, 115, 245, 0.4);
+    color: #ffffff;
+}
+
+.btn-alert-delete {
+    padding: 4px 8px;
+    font-size: 13px;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-alert-delete:hover {
+    background: rgba(239, 68, 68, 0.35);
+    color: #ffffff;
 }

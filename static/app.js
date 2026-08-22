@@ -1227,14 +1227,20 @@ window.togglePin = (sym, longEx, shortEx, event) => {
     playTactileClick();
     
     const existingIdx = pinnedItems.findIndex(p => p.symbol === sym);
+    let isNowPinned = false;
     if (existingIdx !== -1) {
         pinnedItems.splice(existingIdx, 1);
+        isNowPinned = false;
     } else {
         pinnedItems.push({ symbol: sym, long_ex: longEx || state.longEx, short_ex: shortEx || state.shortEx });
+        isNowPinned = true;
     }
     localStorage.setItem("pinnedItems", JSON.stringify(pinnedItems));
+    renderMainTitle();
     renderScanItems(lastScanItems);
     scan();
+
+    showShareToast(isNowPinned ? `Закріплено ${sym} в Топ Спреди! 📌` : `Відкріплено ${sym}! 📌`);
 };
 
 async function scan() {
@@ -1456,6 +1462,7 @@ function showShareToast(msg) {
 
 function renderMainTitle() {
     if (!$("mainTitle")) return;
+    const isPinned = pinnedItems.some(p => p.symbol === state.symbol);
     $("mainTitle").innerHTML = `
         <div class="chart-header-left">
             <div class="chart-symbol-badge" onclick="copyShareLink(event)" style="cursor:pointer;" title="Скопіювати посилання на цю зв'язку">
@@ -1465,11 +1472,19 @@ function renderMainTitle() {
                     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                 </svg>
             </div>
+            <button class="btn-header-pin ${isPinned ? 'pinned' : ''}" onclick="togglePin('${state.symbol}', '${state.longEx}', '${state.shortEx}', event)" title="${isPinned ? 'Відкріпити пару з Топ Спредів 📌' : 'Закріпити пару в Топ Спреди 📌'}">
+                <span class="pin-icon">📌</span>
+                <span class="pin-text">${isPinned ? 'Закріплено' : 'Закріпити'}</span>
+            </button>
         </div>
     `;
     const badge = $("mainTitle").querySelector(".chart-symbol-badge");
     if (badge) {
         badge.onmouseenter = () => playTactileClick();
+    }
+    const pinBtn = $("mainTitle").querySelector(".btn-header-pin");
+    if (pinBtn) {
+        pinBtn.onmouseenter = () => playTactileClick();
     }
 }
 
@@ -2131,18 +2146,109 @@ if ($("closeHistory")) $("closeHistory").onclick = () => $("historyModal").style
 if ($("refreshHistory")) $("refreshHistory").onclick = () => loadHistory();
 if ($("historySymbolFilter")) $("historySymbolFilter").oninput = () => loadHistory();
 
-// Alerts Modal (PER SYMBOL)
-if ($("openAlerts")) $("openAlerts").onclick = () => {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const modalTitle = $("alertModalTitle");
-    if (modalTitle) modalTitle.innerHTML = `Звукове сповіщення для <b>${state.symbol}</b> 🔔`;
+// Alerts Drawer Modal Logic (PER SYMBOL + GLOBAL ALERTS + ACTIVE LIST)
+window.openAlertsDrawer = function() {
+    playTactileClick();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    
+    if ($("alertModalActiveSymbol")) $("alertModalActiveSymbol").textContent = state.symbol;
+    if ($("saveAlertSymName")) $("saveAlertSymName").textContent = state.symbol;
+    
     const cfg = symbolAlerts[state.symbol] || {};
     if ($("entryAlertLevel")) $("entryAlertLevel").value = (cfg.entry !== undefined && cfg.entry !== null) ? cfg.entry : "";
     if ($("exitAlertLevel")) $("exitAlertLevel").value = (cfg.exit !== undefined && cfg.exit !== null) ? cfg.exit : "";
-    $("alertModal").style.display = "flex";
+    
+    if ($("globalSpreadAlertToggle")) $("globalSpreadAlertToggle").checked = !!state.globalSpreadAlert;
+    if ($("globalFundingAlertToggle")) $("globalFundingAlertToggle").checked = !!state.globalFundingAlert;
+    if ($("globalCombinedAlertToggle")) $("globalCombinedAlertToggle").checked = !!state.globalCombinedAlert;
+    
+    renderActiveAlertsList();
+    
+    const modal = $("alertModal");
+    if (modal) {
+        modal.style.display = "flex";
+        modal.offsetHeight;
+        modal.classList.add("open");
+    }
 };
-if ($("closeAlerts")) $("closeAlerts").onclick = () => $("alertModal").style.display = "none";
-if ($("saveAlerts")) $("saveAlerts").onclick = () => {
+
+window.closeAlertsDrawer = function() {
+    playTactileClick();
+    const modal = $("alertModal");
+    if (modal) {
+        modal.classList.remove("open");
+        setTimeout(() => {
+            modal.style.display = "none";
+        }, 250);
+    }
+};
+
+window.renderActiveAlertsList = function() {
+    const container = $("activeAlertsList");
+    if (!container) return;
+    
+    const symbols = Object.keys(symbolAlerts);
+    if ($("activeAlertsCount")) $("activeAlertsCount").textContent = symbols.length;
+    
+    if (symbols.length === 0) {
+        container.innerHTML = `<div class="no-alerts-msg">Немає активних алертів по монетах.<br>Оберіть монету та вкажіть поріг спреду вище.</div>`;
+        return;
+    }
+    
+    container.innerHTML = symbols.map(sym => {
+        const cfg = symbolAlerts[sym] || {};
+        const entryStr = (cfg.entry !== undefined && cfg.entry !== null) ? `+${cfg.entry}%` : "—";
+        const exitStr = (cfg.exit !== undefined && cfg.exit !== null) ? `+${cfg.exit}%` : "—";
+        const exPair = (cfg.longEx && cfg.shortEx) ? `${cfg.longEx} ➔ ${cfg.shortEx}` : "Будь-які біржі";
+        
+        return `
+            <div class="active-alert-card">
+                <div class="active-alert-left">
+                    <div class="active-alert-symbol">${sym}</div>
+                    <div class="active-alert-info">
+                        <div class="active-alert-exchanges">${exPair}</div>
+                        <div class="active-alert-thresholds">
+                            <span class="alert-thresh-in">IN: ${entryStr}</span>
+                            <span style="opacity:0.3;">|</span>
+                            <span class="alert-thresh-out">OUT: ${exitStr}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="active-alert-actions">
+                    <button class="btn-alert-edit" onclick="window.selectAlertCoin('${sym}')" title="Перейти до цієї монети">✏️ Монета</button>
+                    <button class="btn-alert-delete" onclick="window.removeSymbolAlert('${sym}')" title="Видалити алерт">🗑️</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+window.selectAlertCoin = function(sym) {
+    playTactileClick();
+    selectSymbol(sym);
+    if ($("alertModalActiveSymbol")) $("alertModalActiveSymbol").textContent = sym;
+    if ($("saveAlertSymName")) $("saveAlertSymName").textContent = sym;
+    const cfg = symbolAlerts[sym] || {};
+    if ($("entryAlertLevel")) $("entryAlertLevel").value = (cfg.entry !== undefined && cfg.entry !== null) ? cfg.entry : "";
+    if ($("exitAlertLevel")) $("exitAlertLevel").value = (cfg.exit !== undefined && cfg.exit !== null) ? cfg.exit : "";
+};
+
+window.removeSymbolAlert = function(sym) {
+    playTactileClick();
+    delete symbolAlerts[sym];
+    localStorage.setItem("symbolAlerts", JSON.stringify(symbolAlerts));
+    updateAlertBellUI();
+    renderActiveAlertsList();
+    if (sym === state.symbol) {
+        if ($("entryAlertLevel")) $("entryAlertLevel").value = "";
+        if ($("exitAlertLevel")) $("exitAlertLevel").value = "";
+    }
+    showShareToast(`Алерт для ${sym} видалено! 🗑️`);
+    scan();
+};
+
+window.saveCurrentSymbolAlert = function() {
+    playTactileClick();
     const entryRaw = $("entryAlertLevel") ? $("entryAlertLevel").value.replace(",", ".") : "";
     const exitRaw = $("exitAlertLevel") ? $("exitAlertLevel").value.replace(",", ".") : "";
     const entryVal = entryRaw !== "" ? parseFloat(entryRaw) : null;
@@ -2158,14 +2264,47 @@ if ($("saveAlerts")) $("saveAlerts").onclick = () => {
             longEx: state.longEx,
             shortEx: state.shortEx
         };
+        showShareToast(`Алерт для ${state.symbol} збережено! 🔔`);
     } else {
         delete symbolAlerts[state.symbol];
+        showShareToast(`Алерт для ${state.symbol} вимкнено! 🔕`);
     }
     localStorage.setItem("symbolAlerts", JSON.stringify(symbolAlerts));
     updateAlertBellUI();
-    $("alertModal").style.display = "none";
+    renderActiveAlertsList();
     scan();
 };
+
+window.saveGlobalAlerts = function() {
+    playTactileClick();
+    saveCurrentSymbolAlert();
+    
+    state.globalSpreadAlert = $("globalSpreadAlertToggle") ? $("globalSpreadAlertToggle").checked : false;
+    state.globalFundingAlert = $("globalFundingAlertToggle") ? $("globalFundingAlertToggle").checked : false;
+    state.globalCombinedAlert = $("globalCombinedAlertToggle") ? $("globalCombinedAlertToggle").checked : false;
+    
+    localStorage.setItem("globalSpreadAlert", state.globalSpreadAlert);
+    localStorage.setItem("globalFundingAlert", state.globalFundingAlert);
+    localStorage.setItem("globalCombinedAlert", state.globalCombinedAlert);
+    
+    closeAlertsDrawer();
+    showShareToast("Налаштування сповіщень збережено! 🔔");
+};
+
+if ($("alertModal")) {
+    $("alertModal").onclick = (e) => {
+        if (e.target === $("alertModal")) {
+            closeAlertsDrawer();
+        }
+    };
+}
+
+if ($("openAlerts")) $("openAlerts").onclick = () => window.openAlertsDrawer();
+if ($("closeAlerts")) $("closeAlerts").onclick = () => window.closeAlertsDrawer();
+if ($("closeAlertsX")) $("closeAlertsX").onclick = () => window.closeAlertsDrawer();
+if ($("saveAlerts")) $("saveAlerts").onclick = () => window.saveCurrentSymbolAlert();
+if ($("clearCurrentAlertBtn")) $("clearCurrentAlertBtn").onclick = () => window.removeSymbolAlert(state.symbol);
+if ($("saveGlobalAlertsBtn")) $("saveGlobalAlertsBtn").onclick = () => window.saveGlobalAlerts();
 
 // Start application
 async function start() {
