@@ -657,8 +657,9 @@ async def get_price(ex: str, sym: str) -> Tuple[float, float]:
         bid = round(bid / 10.0, 4)
         ask = round(ask / 10.0, 4)
     elif sym.upper() in ["QQQ", "US100"] and bid > 2000.0:
-        bid = round(bid / 50.0, 4)
-        ask = round(ask / 50.0, 4)
+        scale = 41.06 if bid > 10000.0 else 50.0
+        bid = round(bid / scale, 4)
+        ask = round(ask / scale, 4)
 
     if bid > 0 and ask > 0:
         mark_exchange_active(ex)

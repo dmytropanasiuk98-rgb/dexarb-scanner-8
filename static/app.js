@@ -1743,37 +1743,63 @@ const EXCHANGE_ICONS = {
 };
 
 function getExchangeTradeUrl(ex, symbol) {
-    const s = (symbol || "BTC").toUpperCase();
+    const rawSym = (symbol || "BTC").toUpperCase();
     const e = ex || "";
+
     if (e.includes("Ondo")) {
-        return `https://app.ondoperps.xyz/trade/perps/${s}-USD.P`;
-    } else if (e.includes("RH_Lighter") || (e.includes("RH") && e.includes("Lighter"))) {
-        return `https://robinhoodchain.lighter.xyz/trade/${s}`;
-    } else if (e.includes("Lighter")) {
-        return `https://app.lighter.xyz/trade/${s}`;
-    } else if (e.includes("Variational")) {
-        const vSym = (s === "SPY") ? "US500" : s;
+        let ondoSym = rawSym;
+        if (rawSym === "US500" || rawSym === "SP500") ondoSym = "SPY";
+        else if (rawSym === "US100") ondoSym = "QQQ";
+        return `https://app.ondoperps.xyz/trade/perps/${ondoSym}-USD.P`;
+    } 
+    else if (e.includes("RH_Lighter") || (e.includes("RH") && e.includes("Lighter"))) {
+        return `https://robinhoodchain.lighter.xyz/trade/${rawSym}`;
+    } 
+    else if (e.includes("Lighter")) {
+        return `https://app.lighter.xyz/trade/${rawSym}`;
+    } 
+    else if (e.includes("Variational")) {
+        let vSym = rawSym;
+        if (rawSym === "SPY" || rawSym === "SP500") vSym = "US500";
+        else if (rawSym === "US100") vSym = "QQQ";
         return `https://omni.variational.io/perpetual/${vSym}`;
-    } else if (e.includes("Extended") || e.includes("EXTENDET")) {
-        const extSym = (s === "SPY") ? "SPX500M" : (s === "QQQ" ? "TECH100M" : s);
+    } 
+    else if (e.includes("Extended") || e.includes("EXTENDET")) {
+        let extSym = rawSym;
+        if (rawSym === "SPY" || rawSym === "US500" || rawSym === "SP500") extSym = "SPX500M";
+        else if (rawSym === "QQQ" || rawSym === "US100") extSym = "TECH100M";
         return `https://app.extended.exchange/trade/${extSym}-USD`;
-    } else if (e.includes("Rise")) {
-        return `https://www.rise.trade/en/trade/${s}`;
-    } else if (e.includes("Bullet")) {
-        const bSym = (s === "SPY") ? "US500" : (s === "QQQ" ? "US100" : s);
+    } 
+    else if (e.includes("Rise")) {
+        let rSym = rawSym;
+        if (rawSym === "GOLD" || rawSym === "PAXG" || rawSym === "XAUT") rSym = "XAU";
+        else if (rawSym === "SILVER") rSym = "XAG";
+        else if (rawSym === "US500" || rawSym === "SP500") rSym = "SPY";
+        else if (rawSym === "US100") rSym = "QQQ";
+        else if (rawSym === "OIL" || rawSym === "WTI") rSym = "CL";
+        return `https://www.rise.trade/en/trade/${rSym}`;
+    } 
+    else if (e.includes("Bullet")) {
+        let bSym = rawSym;
+        if (rawSym === "SPY" || rawSym === "SP500") bSym = "US500";
+        else if (rawSym === "QQQ") bSym = "US100";
         return `https://app.bullet.xyz/trade/${bSym}-USD`;
-    } else if (e.includes("TxFlow")) {
-        return `https://app.txflow.com/trade/${s}-USDC`;
-    } else if (e.includes("Pacifica")) {
-        const pSym = (s === "SPY") ? "SP500" : s;
+    } 
+    else if (e.includes("TxFlow")) {
+        return `https://app.txflow.com/trade/${rawSym}-USDC`;
+    } 
+    else if (e.includes("Pacifica")) {
+        let pSym = rawSym;
+        if (rawSym === "SPY" || rawSym === "US500") pSym = "SP500";
+        else if (rawSym === "GOLD" || rawSym === "XAU") pSym = "PAXG";
         return `https://app.pacifica.fi/trade/${pSym}`;
     }
     return "#";
 }
 
 function updateTradeButtons() {
-    const longEx = $("longEx") ? $("longEx").value : "Ondo";
-    const shortEx = $("shortEx") ? $("shortEx").value : "RH_Lighter";
+    const longEx = state.longEx || "Ondo";
+    const shortEx = state.shortEx || "RH_Lighter";
     const longSym = state.longSymbol || state.symbol || "BTC";
     const shortSym = state.shortSymbol || state.symbol || "BTC";
 
