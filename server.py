@@ -1126,6 +1126,7 @@ async def api_scan_top(
             s_b, s_a = await get_price(target_s_ex, s)
             if l_a > 0 and s_b > 0:
                 spr = (s_b - l_a) / l_a * 100.0
+                exit_spr = (l_b - s_a) / l_b * 100.0 if (l_b > 0 and s_a > 0) else 0.0
                 l_fr = await get_funding_rate(target_l_ex, s)
                 s_fr = await get_funding_rate(target_s_ex, s)
 
@@ -1139,12 +1140,14 @@ async def api_scan_top(
                     for v_s, (v_sb, v_sa) in ex_prices.items():
                         if v_l == v_s: continue
                         v_spr = (v_sb - v_la) / v_la * 100.0
+                        v_exit = (v_lb - v_sa) / v_lb * 100.0 if (v_lb > 0 and v_sa > 0) else 0.0
                         v_lfr = await get_funding_rate(v_l, s)
                         v_sfr = await get_funding_rate(v_s, s)
                         all_vars.append({
                             "long_ex": v_l,
                             "short_ex": v_s,
                             "entry_pct": round(v_spr, 4),
+                            "exit_pct": round(v_exit, 4),
                             "long_funding": round(v_lfr, 4),
                             "short_funding": round(v_sfr, 4),
                             "net_funding": round(v_sfr - v_lfr, 4)
@@ -1156,6 +1159,7 @@ async def api_scan_top(
                     "long_ex": target_l_ex,
                     "short_ex": target_s_ex,
                     "entry_pct": round(spr, 4),
+                    "exit_pct": round(exit_spr, 4),
                     "long_funding": round(l_fr, 4),
                     "short_funding": round(s_fr, 4),
                     "net_funding": round(s_fr - l_fr, 4),
@@ -1185,6 +1189,7 @@ async def api_scan_top(
                     if l_ex != long_ex or s_ex != short_ex:
                         continue
                 spr = (s_b - l_a) / l_a * 100.0
+                exit_spr = (l_b - s_a) / l_b * 100.0 if (l_b > 0 and s_a > 0) else 0.0
                 # Filter out scale/currency mismatches (> 15% spread is an anomaly/mismatch)
                 if abs(spr) > 15.0:
                     continue
@@ -1196,6 +1201,7 @@ async def api_scan_top(
                     "long_ex": l_ex,
                     "short_ex": s_ex,
                     "entry_pct": round(spr, 4),
+                    "exit_pct": round(exit_spr, 4),
                     "long_funding": round(l_fr, 4),
                     "short_funding": round(s_fr, 4),
                     "net_funding": round(net_fr, 4)
@@ -1204,17 +1210,18 @@ async def api_scan_top(
 
                 if spr >= min_spread_val and (min_funding_val == 0.0 or net_fr >= min_funding_val) and spr > best_spr:
                     best_spr = spr
-                    best_item = (l_ex, s_ex, spr, l_fr, s_fr)
+                    best_item = (l_ex, s_ex, spr, exit_spr, l_fr, s_fr)
 
         all_vars.sort(key=lambda x: x["entry_pct"], reverse=True)
 
         if best_item is not None:
-            best_l_ex, best_s_ex, spr, l_fr, s_fr = best_item
+            best_l_ex, best_s_ex, spr, exit_spr, l_fr, s_fr = best_item
             return {
                 "symbol": s,
                 "long_ex": best_l_ex,
                 "short_ex": best_s_ex,
                 "entry_pct": round(spr, 4),
+                "exit_pct": round(exit_spr, 4),
                 "long_funding": round(l_fr, 4),
                 "short_funding": round(s_fr, 4),
                 "net_funding": round(s_fr - l_fr, 4),

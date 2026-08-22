@@ -775,8 +775,6 @@ async function poll() {
                     }
                 }
             }
-
-            renderMainTitle();
         } else {
             if ($("dot")) $("dot").className = "dot err";
         }
@@ -1085,7 +1083,19 @@ function renderScanItems(rawItems) {
             ? `<span class="ex-pair-tag" style="opacity:0.6;" title="Монета відсутня у топі спредів">Немає спреду</span>` 
             : `<span class="ex-pair-tag" title="Краща пара: LONG ${l_ex} / SHORT ${s_ex}">${l_ex} ➔ ${s_ex}</span>`;
 
-        const spreadTxt = it.is_missing ? `<span style="color:#848e9c;">--</span>` : `${it.entry_pct.toFixed(3)}%`;
+        const entryVal = it.entry_pct;
+        const exitVal = (it.exit_pct !== undefined && it.exit_pct !== null) ? it.exit_pct : (-(it.entry_pct + 0.1));
+        
+        const entryClass = entryVal >= 0 ? 'green' : 'red';
+        const exitClass = exitVal >= 0 ? 'green' : 'red';
+        
+        const spreadTxt = it.is_missing 
+            ? `<span style="color:#848e9c;">--</span>` 
+            : `<div style="display:flex; flex-direction:column; align-items:center; line-height:1.25;">
+                 <span class="${entryClass}" style="font-size:13.5px; font-weight:700;" title="Спред ВХОДУ (IN): Buy Ask на ${l_ex} / Sell Bid на ${s_ex}">${entryVal >= 0 ? '+' : ''}${entryVal.toFixed(3)}%</span>
+                 <span class="${exitClass}" style="font-size:11.5px; font-weight:600; opacity:0.9;" title="Спред ВИХОДУ (OUT): Sell Bid на ${l_ex} / Buy Ask на ${s_ex}">${exitVal >= 0 ? '+' : ''}${exitVal.toFixed(3)}%</span>
+               </div>`;
+
         const fundingTxt = it.is_missing 
             ? `<span style="color:#848e9c;">-- / --</span>` 
             : `<span class="${lfr >= 0 ? 'green' : 'red'}">${lfr >= 0 ? '+' : ''}${lfr.toFixed(2)}%</span> / <span class="${sfr >= 0 ? 'green' : 'red'}">${sfr >= 0 ? '+' : ''}${sfr.toFixed(2)}%</span>`;
@@ -1102,7 +1112,7 @@ function renderScanItems(rawItems) {
                 </button>
                 ${exTag}
             </td>
-            <td class="${sepClass} ${it.is_missing ? '' : (it.entry_pct > 0 ? 'green' : 'red')}">${spreadTxt}</td>
+            <td class="${sepClass}">${spreadTxt}</td>
             <td class="${sepClass}" style="font-size:11px; white-space:nowrap;">${fundingTxt}</td>
             <td class="${sepClass} ${it.is_missing ? '' : (nfr >= 0 ? 'green' : 'red')}" style="font-size:11px; font-weight:bold; white-space:nowrap;">${netFundingTxt}</td>
         `;
@@ -1460,9 +1470,15 @@ function showShareToast(msg) {
     }, 2500);
 }
 
-function renderMainTitle() {
+let lastRenderedTitleKey = "";
+
+function renderMainTitle(force = false) {
     if (!$("mainTitle")) return;
     const isPinned = pinnedItems.some(p => p.symbol === state.symbol);
+    const titleKey = `${state.symbol}_${state.longEx}_${state.shortEx}_${isPinned}`;
+    if (!force && titleKey === lastRenderedTitleKey) return;
+    lastRenderedTitleKey = titleKey;
+
     $("mainTitle").innerHTML = `
         <div class="chart-header-left">
             <div class="chart-symbol-badge" onclick="copyShareLink(event)" style="cursor:pointer;" title="Скопіювати посилання на цю зв'язку">
@@ -2215,7 +2231,7 @@ window.renderActiveAlertsList = function() {
                     </div>
                 </div>
                 <div class="active-alert-actions">
-                    <button class="btn-alert-edit" onclick="window.selectAlertCoin('${sym}')" title="Перейти до цієї монети">✏️ Монета</button>
+                    <button class="btn-alert-edit" onclick="window.selectAlertCoin('${sym}')" title="Редагувати алерт для цієї монети">✏️ Редагувати</button>
                     <button class="btn-alert-delete" onclick="window.removeSymbolAlert('${sym}')" title="Видалити алерт">🗑️</button>
                 </div>
             </div>
