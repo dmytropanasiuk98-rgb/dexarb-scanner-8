@@ -1536,10 +1536,9 @@ const TICKER_ALIAS_GROUPS = {
     "SP500": ["SPY", "US500", "SP500"],
     "QQQ": ["QQQ", "US100"],
     "US100": ["QQQ", "US100"],
-    "GOLD": ["GOLD", "XAU", "XAUT", "PAXG"],
-    "XAU": ["GOLD", "XAU", "XAUT", "PAXG"],
-    "XAUT": ["GOLD", "XAU", "XAUT", "PAXG"],
-    "PAXG": ["GOLD", "XAU", "XAUT", "PAXG"]
+    "XAU": ["XAU", "XAUT", "PAXG"],
+    "XAUT": ["XAU", "XAUT", "PAXG"],
+    "PAXG": ["XAU", "XAUT", "PAXG"]
 };
 
 async function loadTickerStatusForMenu(ex, group, menuEl, activeTkr, isLong) {
@@ -1592,6 +1591,26 @@ async function loadTickerStatusForMenu(ex, group, menuEl, activeTkr, isLong) {
     }
 }
 
+function getNativeTickerJS(ex, sym) {
+    const s = (sym || "").toUpperCase();
+    const e = ex || "";
+    if (s === "XAU" || s === "PAXG" || s === "XAUT") {
+        return s;
+    }
+    if (s === "SPY" || s === "US500" || s === "SP500") {
+        if (e.includes("Variational") || e.includes("Bullet")) return "US500";
+        if (e.includes("Pacifica")) return "SP500";
+        if (e.includes("Extended") || e.includes("EXTENDET")) return "SPX500M";
+        return "SPY";
+    }
+    if (s === "QQQ" || s === "US100") {
+        if (e.includes("Bullet")) return "US100";
+        if (e.includes("Extended") || e.includes("EXTENDET")) return "TECH100M";
+        return "QQQ";
+    }
+    return s;
+}
+
 function updateCardTickerSelectors() {
     const sym = (state.symbol || "BTC").toUpperCase();
     const group = TICKER_ALIAS_GROUPS[sym];
@@ -1607,22 +1626,13 @@ function updateCardTickerSelectors() {
         return;
     }
 
-    // Determine default native ticker for Long exchange
-    let defaultLongTkr = sym;
-    if (state.longEx === "Ondo" && sym === "SPY") defaultLongTkr = "SPY";
-    else if ((state.longEx === "Variational" || state.longEx === "Bullet") && sym === "SPY") defaultLongTkr = "US500";
-    else if (state.longEx === "Pacifica" && sym === "SPY") defaultLongTkr = "SP500";
-    else if (state.longEx === "Bullet" && sym === "QQQ") defaultLongTkr = "US100";
-
-    // Determine default native ticker for Short exchange
-    let defaultShortTkr = sym;
-    if (state.shortEx === "Ondo" && sym === "SPY") defaultShortTkr = "SPY";
-    else if ((state.shortEx === "Variational" || state.shortEx === "Bullet") && sym === "SPY") defaultShortTkr = "US500";
-    else if (state.shortEx === "Pacifica" && sym === "SPY") defaultShortTkr = "SP500";
-    else if (state.shortEx === "Bullet" && sym === "QQQ") defaultShortTkr = "US100";
-
-    if (!state.longSymbol || !group.includes(state.longSymbol)) state.longSymbol = defaultLongTkr;
-    if (!state.shortSymbol || !group.includes(state.shortSymbol)) state.shortSymbol = defaultShortTkr;
+    // Determine default native ticker for Long & Short exchange ONLY if not already set or invalid
+    if (!state.longSymbol || !group.includes(state.longSymbol)) {
+        state.longSymbol = getNativeTickerJS(state.longEx, sym);
+    }
+    if (!state.shortSymbol || !group.includes(state.shortSymbol)) {
+        state.shortSymbol = getNativeTickerJS(state.shortEx, sym);
+    }
 
     // Render Long Custom Ticker Dropdown
     if (longWrapper) {
@@ -1860,6 +1870,17 @@ function setCustomSelectValue(selectId, val) {
     if (nativeSelect) nativeSelect.value = val;
     if (isLong) state.longEx = val;
     else state.shortEx = val;
+
+    // Preserve sub-ticker selection if valid in group, otherwise fallback to native ticker
+    const currentSym = (state.symbol || "BTC").toUpperCase();
+    const group = TICKER_ALIAS_GROUPS[currentSym];
+    if (group) {
+        if (isLong && (!state.longSymbol || !group.includes(state.longSymbol))) {
+            state.longSymbol = getNativeTickerJS(state.longEx, currentSym);
+        } else if (!isLong && (!state.shortSymbol || !group.includes(state.shortSymbol))) {
+            state.shortSymbol = getNativeTickerJS(state.shortEx, currentSym);
+        }
+    }
 
     if (textSpan) textSpan.innerText = EXCHANGE_NAMES[val] || val;
     if (iconImg) iconImg.src = EXCHANGE_ICONS[val] || '';

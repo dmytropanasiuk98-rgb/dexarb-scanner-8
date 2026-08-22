@@ -416,6 +416,17 @@ def normalize_exchange_name(ex: str) -> str:
 def get_native_ticker(ex: str, sym: str) -> str:
     ex_clean = normalize_exchange_name(ex)
     s = (sym or "").upper()
+    
+    # Gold assets (XAU, PAXG, XAUT are separate assets with separate prices!)
+    if s in ["XAU", "PAXG", "XAUT"]:
+        return s
+
+    if s == "GOLD":
+        if ex_clean in ["Pacifica", "Paradex"]:
+            return "PAXG"
+        return "XAU"
+
+    # S&P 500 family
     if s in ["SPY", "US500", "SP500"]:
         if ex_clean in ["Variational", "Bullet"]:
             return "US500"
@@ -425,6 +436,7 @@ def get_native_ticker(ex: str, sym: str) -> str:
             return "SPX500M"
         return "SPY"
     
+    # Nasdaq 100 family
     if s in ["QQQ", "US100"]:
         if ex_clean == "Bullet":
             return "US100"
@@ -536,11 +548,6 @@ async def get_symbols_for_exchanges(exchanges: List[str], require_all: bool = Fa
             
             result = sorted(list(common))
             
-            if has_paradex and has_lighter and not has_ethereal:
-                if "GOLD" not in result:
-                    result.append("GOLD")
-                    result.sort()
-            
             return result
         return []
     except Exception as e:
@@ -552,10 +559,6 @@ async def fetch_price_raw(ex: str, sym: str) -> Tuple[float, float]:
     try:
         ex = normalize_exchange_name(ex)
         actual_sym = get_native_ticker(ex, sym)
-        if sym == "GOLD":
-            if ex == "Paradex": actual_sym = "PAXG"
-            elif ex == "Lighter": actual_sym = "XAU"
-            else: return 0.0, 0.0
 
         if ex == "Ondo":
             ondo_map = await get_ondo_symbols()
@@ -856,7 +859,7 @@ async def api_ticker_status(ex: str, tickers: str):
     return {"ok": True, "status": res}
 
 async def history_logger_loop():
-    """Periodically reads prices from memory cache and logs spreads to SQLite without hitting external APIs."""
+    """Periodically reads prices from memory cache and logs spreads to DB without hitting external APIs."""
     while True:
         try:
             await asyncio.sleep(5)
@@ -867,16 +870,37 @@ async def history_logger_loop():
             
             for lex, sex in pairs:
                 syms = await get_symbols_for_exchanges([lex, sex])
+                logged_keys = set()
+                
+                # Standard single-symbol spreads
                 for s in syms:
                     lb, la = await get_price(lex, s)
                     sb, sa = await get_price(sex, s)
                     if la > 0 and sb > 0:
                         entry = (sb - la) / la * 100.0
                         exit_ = (lb - sa) / lb * 100.0 if (lb > 0 and sa > 0) else 0.0
-                        if entry >= -5.0:  # Save relevant spreads
+                        if entry >= -10.0:  # Save relevant spreads
                             l_fr = await get_funding_rate(lex, s)
                             s_fr = await get_funding_rate(sex, s)
                             records.append((now_ts, s, lex, sex, round(entry, 4), round(exit_, 4), la, sb, round(l_fr, 4), round(s_fr, 4)))
+                            logged_keys.add((s, s))
+
+                # Log all cross-ticker gold asset combinations (XAU, PAXG, XAUT)
+                gold_assets = ["XAU", "PAXG", "XAUT"]
+                for l_g in gold_assets:
+                    for s_g in gold_assets:
+                        if (l_g, s_g) in logged_keys:
+                            continue
+                        lb, la = await get_price(lex, l_g)
+                        sb, sa = await get_price(sex, s_g)
+                        if la > 0 and sb > 0:
+                            entry = (sb - la) / la * 100.0
+                            exit_ = (lb - sa) / lb * 100.0 if (lb > 0 and sa > 0) else 0.0
+                            if entry >= -10.0:
+                                l_fr = await get_funding_rate(lex, l_g)
+                                s_fr = await get_funding_rate(sex, s_g)
+                                pair_sym = f"{l_g}_{s_g}" if l_g != s_g else l_g
+                                records.append((now_ts, pair_sym, lex, sex, round(entry, 4), round(exit_, 4), la, sb, round(l_fr, 4), round(s_fr, 4)))
             
             if records:
                 def _do_insert():
@@ -975,43 +999,15 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
         l_ticker = (long_sym if long_sym else symbol or "").upper()
         s_ticker = (short_sym if short_sym else symbol or "").upper()
 
-        # If user explicitly selected different sub-tickers (e.g. XAU vs PAXG), calculate an anchor-consistent history for that exact ticker pair!
-        if l_ticker and s_ticker and long_ex and short_ex and (l_ticker != s_ticker or (symbol and l_ticker != symbol.upper())):
-            lb, la = await get_price(long_ex, l_ticker)
-            sb, sa = await get_price(short_ex, s_ticker)
-            now_ts = int(time.time())
-            if la > 0 and sb > 0:
-                curr_entry = (sb - la) / la * 100.0
-                curr_exit = (lb - sa) / lb * 100.0 if (lb > 0 and sa > 0) else 0.0
-                curr_l_fr = await get_funding_rate(long_ex, l_ticker)
-                curr_s_fr = await get_funding_rate(short_ex, s_ticker)
-                rows = []
-                for minutes_back in range(0, 60):
-                    t_point = now_ts - (minutes_back * 60)
-                    rows.append((t_point, symbol.upper() if symbol else l_ticker, long_ex, short_ex, curr_entry, curr_exit, la, sb, curr_l_fr, curr_s_fr))
-                return {"ok": True, "count": len(rows), "items": [
-                    {
-                        "timestamp": r[0],
-                        "time_str": time.strftime("%H:%M:%S", time.localtime(r[0])),
-                        "symbol": r[1],
-                        "long_ex": r[2],
-                        "short_ex": r[3],
-                        "entry_pct": r[4],
-                        "exit_pct": r[5],
-                        "long_ask": r[6],
-                        "short_bid": r[7],
-                        "long_funding": r[8],
-                        "short_funding": r[9]
-                    } for r in rows
-                ]}
+        target_sym = (symbol or "").upper()
+        if l_ticker and s_ticker and l_ticker != s_ticker:
+            target_sym = f"{l_ticker}_{s_ticker}"
 
-        rows = await asyncio.to_thread(_sync_fetch_history, symbol, long_ex, short_ex, limit)
+        rows = await asyncio.to_thread(_sync_fetch_history, target_sym, long_ex, short_ex, limit)
 
         # If records for a requested symbol/exchange pair are sparse (< 60 points), synthesize a smooth 1-hour backfilled baseline ONLY IF BOTH PRICES ARE VALID (> 0)!
         if symbol and long_ex and short_ex and len(rows) < 60:
             now_ts = int(time.time())
-            l_ticker = long_sym if long_sym else symbol
-            s_ticker = short_sym if short_sym else symbol
             
             # Use the latest live price or newest DB record as anchor
             if len(rows) > 0:
@@ -1024,38 +1020,38 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
             else:
                 lb, la = await get_price(long_ex, l_ticker)
                 sb, sa = await get_price(short_ex, s_ticker)
-                
-                ref_price = la if la > 0 else (sb if sb > 0 else 0.0)
-                if ref_price > 0:
-                    if la <= 0: la = ref_price
-                    if lb <= 0: lb = ref_price
-                    if sa <= 0: sa = ref_price
-                    if sb <= 0: sb = ref_price
+                if la > 0 and sb > 0:
                     curr_entry = (sb - la) / la * 100.0
-                    curr_exit = (lb - sa) / lb * 100.0
+                    curr_exit = (lb - sa) / lb * 100.0 if (lb > 0 and sa > 0) else 0.0
+                    curr_l_ask = la
+                    curr_s_bid = sb
+                    curr_l_fr = await get_funding_rate(long_ex, l_ticker)
+                    curr_s_fr = await get_funding_rate(short_ex, s_ticker)
                 else:
-                    curr_entry = 0.0
-                    curr_exit = 0.0
-                curr_l_ask = la
-                curr_s_bid = sb
-                curr_l_fr = await get_funding_rate(long_ex, l_ticker)
-                curr_s_fr = await get_funding_rate(short_ex, s_ticker)
+                    return {"ok": True, "count": 0, "items": []}
 
-            existing_ts = set(r[0] for r in rows)
-            synth_rows = []
-            
-            if curr_l_ask > 0 and curr_s_bid > 0:
-                for minutes_back in range(1, 61):
-                    t_point = now_ts - (minutes_back * 60)
-                    if t_point not in existing_ts:
-                        synth_rows.append((t_point, symbol.upper(), long_ex, short_ex, curr_entry, curr_exit, curr_l_ask, curr_s_bid, curr_l_fr, curr_s_fr))
-            
-            rows = rows + synth_rows
-            rows.sort(key=lambda x: x[0], reverse=True)
+            syn_rows = []
+            for minutes_back in range(0, 60):
+                t_point = now_ts - (minutes_back * 60)
+                syn_rows.append((t_point, target_sym, long_ex, short_ex, curr_entry, curr_exit, curr_l_ask, curr_s_bid, curr_l_fr, curr_s_fr))
+            return {"ok": True, "count": len(syn_rows), "items": [
+                {
+                    "timestamp": r[0],
+                    "time_str": time.strftime("%H:%M:%S", time.localtime(r[0])),
+                    "symbol": r[1],
+                    "long_ex": r[2],
+                    "short_ex": r[3],
+                    "entry_pct": r[4],
+                    "exit_pct": r[5],
+                    "long_ask": r[6],
+                    "short_bid": r[7],
+                    "long_funding": r[8],
+                    "short_funding": r[9]
+                } for r in syn_rows
+            ]}
 
-        items = []
-        for r in rows:
-            items.append({
+        return {"ok": True, "count": len(rows), "items": [
+            {
                 "timestamp": r[0],
                 "time_str": time.strftime("%H:%M:%S", time.localtime(r[0])),
                 "symbol": r[1],
@@ -1067,10 +1063,11 @@ async def api_history(symbol: Optional[str] = None, long_ex: Optional[str] = Non
                 "short_bid": r[7],
                 "long_funding": r[8] if len(r) > 8 else 0.0,
                 "short_funding": r[9] if len(r) > 9 else 0.0
-            })
-        return {"ok": True, "count": len(items), "items": items}
+            } for r in rows
+        ]}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        logger.error(f"Error in api_history: {e}")
+        return {"ok": False, "error": str(e), "items": []}
 
 @app.get("/api/scan_top")
 async def api_scan_top(
