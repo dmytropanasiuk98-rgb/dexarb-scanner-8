@@ -1895,9 +1895,9 @@ input:checked + .slider:before {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: #94a3b8;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1914,18 +1914,32 @@ input:checked + .slider:before {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.btn-settings-icon {
+.btn-settings-icon, .btn-calc-icon {
     background: rgba(55, 115, 245, 0.15) !important;
     border: 1px solid rgba(55, 115, 245, 0.35) !important;
     color: #60a5fa !important;
 }
 
-.btn-settings-icon:hover {
+.btn-settings-icon:hover, .btn-calc-icon:hover {
     background: linear-gradient(135deg, #3773f5 0%, #2563eb 100%) !important;
     color: #ffffff !important;
     border-color: #60a5fa !important;
-    transform: rotate(180deg) scale(1.1) !important;
     box-shadow: 0 0 16px rgba(55, 115, 245, 0.8) !important;
+}
+
+.btn-settings-icon:hover {
+    transform: rotate(180deg) scale(1.1) !important;
+}
+
+.btn-calc-icon:hover {
+    transform: scale(1.1) !important;
+}
+
+.btn-calc-icon:hover .calc-icon-svg {
+    transform: rotate(10deg) scale(1.1);
+    stroke: #ffffff;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+    transition: transform 0.25s ease;
 }
 
 .btn-alerts-icon {
