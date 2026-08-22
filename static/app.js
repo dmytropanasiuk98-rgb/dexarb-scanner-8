@@ -2446,4 +2446,109 @@ if ($("coinSelectorModal")) {
     };
 }
 
+// Spread Calculator Drawer Logic
+window.openCalcDrawer = function() {
+    playTactileClick();
+    if ($("calcSymName")) $("calcSymName").textContent = state.symbol;
+    const modal = $("calcModal");
+    if (modal) {
+        modal.style.display = "flex";
+        modal.offsetHeight;
+        modal.classList.add("open");
+    }
+    calculateSpreadFromInputs();
+};
+
+window.closeCalcDrawer = function() {
+    playTactileClick();
+    const modal = $("calcModal");
+    if (modal) {
+        modal.classList.remove("open");
+        setTimeout(() => {
+            modal.style.display = "none";
+        }, 250);
+    }
+};
+
+window.calculateSpreadFromInputs = function() {
+    const raw1 = $("calcPrice1") ? $("calcPrice1").value.replace(",", ".") : "";
+    const raw2 = $("calcPrice2") ? $("calcPrice2").value.replace(",", ".") : "";
+
+    const p1 = parseFloat(raw1);
+    const p2 = parseFloat(raw2);
+
+    if (isNaN(p1) || isNaN(p2) || p1 === 0) {
+        if ($("calcSpreadResult")) {
+            $("calcSpreadResult").textContent = "0.000%";
+            $("calcSpreadResult").style.color = "#38bdf8";
+        }
+        if ($("calcAbsResult")) $("calcAbsResult").textContent = "$0.00";
+        if ($("calcExitResult")) $("calcExitResult").textContent = "0.000%";
+        return;
+    }
+
+    const diff = p2 - p1;
+    const sprPct = (diff / p1) * 100.0;
+    const exitPct = ((p1 - p2) / p1) * 100.0;
+
+    const sprStr = (sprPct >= 0 ? "+" : "") + sprPct.toFixed(3) + "%";
+    const exitStr = (exitPct >= 0 ? "+" : "") + exitPct.toFixed(3) + "%";
+    const diffStr = (diff >= 0 ? "+" : "") + diff.toFixed(4);
+
+    if ($("calcSpreadResult")) {
+        $("calcSpreadResult").textContent = sprStr;
+        $("calcSpreadResult").style.color = sprPct >= 0 ? "#4ade80" : "#f87171";
+    }
+
+    if ($("calcAbsResult")) {
+        $("calcAbsResult").textContent = diffStr;
+    }
+
+    if ($("calcExitResult")) {
+        $("calcExitResult").textContent = exitStr;
+        $("calcExitResult").style.color = exitPct >= 0 ? "#4ade80" : "#f87171";
+    }
+};
+
+window.swapCalcPrices = function() {
+    playTactileClick();
+    const input1 = $("calcPrice1");
+    const input2 = $("calcPrice2");
+    if (!input1 || !input2) return;
+    const temp = input1.value;
+    input1.value = input2.value;
+    input2.value = temp;
+    calculateSpreadFromInputs();
+};
+
+window.clearCalcInputs = function() {
+    playTactileClick();
+    if ($("calcPrice1")) $("calcPrice1").value = "";
+    if ($("calcPrice2")) $("calcPrice2").value = "";
+    calculateSpreadFromInputs();
+};
+
+window.fillCurrentPricesToCalc = function() {
+    playTactileClick();
+    if (state.longAsk > 0 && state.shortBid > 0) {
+        if ($("calcPrice1")) $("calcPrice1").value = state.longAsk.toString();
+        if ($("calcPrice2")) $("calcPrice2").value = state.shortBid.toString();
+        calculateSpreadFromInputs();
+    } else {
+        showShareToast("Немає актуальних цін для цієї монети");
+    }
+};
+
+if ($("openCalc")) $("openCalc").onclick = openCalcDrawer;
+if ($("closeCalcX")) $("closeCalcX").onclick = closeCalcDrawer;
+if ($("calcPrice1")) $("calcPrice1").addEventListener("input", calculateSpreadFromInputs);
+if ($("calcPrice2")) $("calcPrice2").addEventListener("input", calculateSpreadFromInputs);
+if ($("calcModal")) {
+    $("calcModal").onclick = (e) => {
+        if (e.target === $("calcModal")) {
+            closeCalcDrawer();
+        }
+    };
+}
+
 start();

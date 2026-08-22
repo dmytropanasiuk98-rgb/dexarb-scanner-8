@@ -157,13 +157,21 @@
         <div class="sidebar-header-actions">
           <button id="openAlerts" class="btn-sidebar-action btn-alerts-icon" title="Налаштувати звукові алерти 🔔">🔔</button>
           <button id="openSettings" class="btn-sidebar-action btn-settings-icon" title="Налаштування сканера ⚙️">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
             </svg>
           </button>
+          <button id="openCalc" class="btn-sidebar-action btn-calc-icon">
+            <svg class="calc-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+              <line x1="8" y1="6" x2="16" y2="6"></line>
+              <line x1="16" y1="14" x2="16" y2="14.01"></line>
+              <path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01M16 18h.01"></path>
+            </svg>
+          </button>
           <button id="sidebarToggle" class="btn-sidebar-action btn-toggle-arrow" title="Сховати панель">
-            <svg class="toggle-arrow-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="toggle-arrow-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="13 17 18 12 13 7"></polyline>
               <polyline points="6 17 11 12 6 7"></polyline>
             </svg>
@@ -416,6 +424,79 @@
 
       <div class="drawer-footer">
         <button id="closeCoinSelectorBtn" class="btn-secondary">Закрити</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spread Calculator Drawer -->
+  <div id="calcModal" class="drawer-modal" style="display: none;">
+    <div class="settings-drawer calc-settings-drawer">
+      <div class="drawer-header">
+        <h3>Калькулятор Спреду <span class="header-subtitle" style="font-size: 13px; color: #94a3b8; font-weight: 500;">(Різниця у %)</span></h3>
+        <button id="closeCalcX" class="btn-drawer-close" title="Закрити калькулятор">✕</button>
+      </div>
+
+      <div class="drawer-body" style="padding: 16px;">
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          
+          <!-- Top Row: Price 1 & Price 2 Inputs with Swap Button -->
+          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px; width:100%; box-sizing:border-box;">
+            <div style="flex:1; min-width:0;">
+              <label style="font-size:12px; font-weight:600; color:#cbd5e1; display:block; margin-bottom:6px; text-align:center;">
+                Ціна 1:
+              </label>
+              <input type="text" id="calcPrice1" class="drawer-input" placeholder="0.00" style="width:100%; box-sizing:border-box; height:38px; padding:0 8px; background:#0f172a; border:1.5px solid #334155; border-radius:10px; color:#fff; font-size:14px; font-weight:700; text-align:center;">
+            </div>
+
+            <button type="button" id="calcSwapBtn" onclick="swapCalcPrices()" style="height:38px; width:34px; min-width:34px; background:rgba(55, 115, 245, 0.15); border:1px solid rgba(55, 115, 245, 0.4); border-radius:10px; color:#60a5fa; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s ease; flex-shrink:0;" title="Поміняти ціни місцями ⇄">
+              ⇄
+            </button>
+
+            <div style="flex:1; min-width:0;">
+              <label style="font-size:12px; font-weight:600; color:#cbd5e1; display:block; margin-bottom:6px; text-align:center;">
+                Ціна 2:
+              </label>
+              <input type="text" id="calcPrice2" class="drawer-input" placeholder="0.00" style="width:100%; box-sizing:border-box; height:38px; padding:0 8px; background:#0f172a; border:1.5px solid #334155; border-radius:10px; color:#fff; font-size:14px; font-weight:700; text-align:center;">
+            </div>
+          </div>
+
+          <!-- Quick Fill Current Prices Button -->
+          <button type="button" onclick="fillCurrentPricesToCalc()" style="height:34px; background:rgba(30, 41, 59, 0.7); border:1px solid rgba(148, 163, 184, 0.2); border-radius:8px; color:#94a3b8; font-size:12px; font-weight:600; cursor:pointer;" title="Підставити ціни поточної активної монети">
+            📥 Підставити ціни поточної монети (<span id="calcSymName" style="color:#60a5fa;">QQQ</span>)
+          </button>
+
+          <!-- Result Display Card -->
+          <div style="background:linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%); border:1.5px solid rgba(55, 115, 245, 0.3); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:12px; box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed rgba(148,163,184,0.15); padding-bottom:10px;">
+              <span style="font-size:13px; color:#94a3b8; font-weight:600;">Різниця у % (Спред):</span>
+              <span id="calcSpreadResult" style="font-size:22px; font-weight:800; color:#38bdf8;">0.000%</span>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed rgba(148,163,184,0.15); padding-bottom:10px;">
+              <span style="font-size:13px; color:#94a3b8; font-weight:600;">Абсолютна різниця ($):</span>
+              <span id="calcAbsResult" style="font-size:16px; font-weight:700; color:#f8fafc;">$0.00</span>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:13px; color:#94a3b8; font-weight:600;">Зворотний спред (EXIT %):</span>
+              <span id="calcExitResult" style="font-size:14px; font-weight:700; color:#94a3b8;">0.000%</span>
+            </div>
+
+          </div>
+
+          <!-- Formulas explanation note -->
+          <div style="font-size:11px; color:#64748b; line-height:1.4; padding:8px 10px; background:rgba(15, 23, 42, 0.4); border-radius:8px; border-left:3px solid #38bdf8;">
+            💡 <b>Формула:</b> Спред % = ((Ціна 2 − Ціна 1) / Ціна 1) × 100%<br>
+            Наприклад: при Ціні 1 = 248.3 та Ціні 2 = 249.8 спред становить <b>+0.604%</b>.
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-buttons drawer-footer">
+        <button type="button" onclick="clearCalcInputs()" class="btn-secondary" style="background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.4); color:#fca5a5;">Очистити 🗑️</button>
+        <button type="button" onclick="closeCalcDrawer()" class="btn-primary">Закрити</button>
       </div>
     </div>
   </div>
