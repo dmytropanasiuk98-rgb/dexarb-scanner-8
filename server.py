@@ -399,13 +399,39 @@ async def get_rh_lighter_symbols() -> Dict[str, int]:
         _rh_lighter_symbols.update(RH_STATIC_MAP)
     return _rh_lighter_symbols
 
+def normalize_exchange_name(ex: str) -> str:
+    if not ex: return ""
+    e = ex.strip()
+    if e.startswith("Variational"): return "Variational"
+    if e.startswith("Pacifica"): return "Pacifica"
+    if e.startswith("TxFlow"): return "TxFlow"
+    if e.startswith("Extended") or e.startswith("EXTENDET"): return "Extended"
+    if e.startswith("RH_Lighter"): return "RH_Lighter"
+    if e.startswith("Lighter"): return "Lighter"
+    if e.startswith("RiseX"): return "RiseX"
+    if e.startswith("Bullet"): return "Bullet"
+    if e.startswith("Ondo"): return "Ondo"
+    return e
+
 def get_native_ticker(ex: str, sym: str) -> str:
-    if ex in ["Ondo", "Variational", "Bullet"] and sym == "SPY":
-        return "US500"
-    if ex == "Pacifica" and sym == "SPY":
-        return "SP500"
-    if ex == "Variational" and sym == "QQQ":
-        return "US100"
+    ex_clean = normalize_exchange_name(ex)
+    s = (sym or "").upper()
+    if s in ["SPY", "US500", "SP500"]:
+        if ex_clean in ["Variational", "Bullet"]:
+            return "US500"
+        elif ex_clean == "Pacifica":
+            return "SP500"
+        elif ex_clean == "Extended":
+            return "SPX500M"
+        return "SPY"
+    
+    if s in ["QQQ", "US100"]:
+        if ex_clean == "Bullet":
+            return "US100"
+        elif ex_clean == "Extended":
+            return "TECH100M"
+        return "QQQ"
+
     return sym
 
 async def get_symbols_for_exchanges(exchanges: List[str], require_all: bool = False) -> List[str]:
@@ -437,7 +463,10 @@ async def get_symbols_for_exchanges(exchanges: List[str], require_all: bool = Fa
                 exchange_symbols.append(v_syms)
 
             elif ex in ["Extended", "EXTENDET"]:
-                exchange_symbols.append(set(extended_client.client.get_symbols()))
+                ext_syms = set(extended_client.client.get_symbols())
+                if "SPX500M" in ext_syms: ext_syms.add("SPY")
+                if "TECH100M" in ext_syms: ext_syms.add("QQQ")
+                exchange_symbols.append(ext_syms)
 
             elif ex == "Paradex":
                 s = await get_session()
@@ -465,6 +494,8 @@ async def get_symbols_for_exchanges(exchanges: List[str], require_all: bool = Fa
                 if "US500" in b_syms:
                     b_syms.remove("US500")
                     b_syms.add("SPY")
+                if "US100" in b_syms:
+                    b_syms.add("QQQ")
                 exchange_symbols.append(b_syms)
 
             elif ex == "TxFlow":
@@ -519,6 +550,7 @@ async def get_symbols_for_exchanges(exchanges: List[str], require_all: bool = Fa
 async def fetch_price_raw(ex: str, sym: str) -> Tuple[float, float]:
     """Perform actual HTTP fetch for price."""
     try:
+        ex = normalize_exchange_name(ex)
         actual_sym = get_native_ticker(ex, sym)
         if sym == "GOLD":
             if ex == "Paradex": actual_sym = "PAXG"
@@ -728,6 +760,7 @@ async def get_ondo_funding(symbol: str) -> float:
 
 async def get_funding_rate(ex: str, sym: str) -> float:
     """Get funding rate percentage for exchange & symbol."""
+    ex = normalize_exchange_name(ex)
     actual_sym = get_native_ticker(ex, sym)
     if ex == "RH_Lighter":
         return rh_lighter_ws.client.get_funding(actual_sym)
@@ -752,6 +785,8 @@ async def get_funding_rate(ex: str, sym: str) -> float:
 @app.get("/api/poll")
 async def api_poll(symbol: str, long_ex: str, short_ex: str, long_sym: Optional[str] = None, short_sym: Optional[str] = None):
     t0 = time.perf_counter()
+    long_ex = normalize_exchange_name(long_ex)
+    short_ex = normalize_exchange_name(short_ex)
     l_ticker = long_sym if long_sym else symbol
     s_ticker = short_sym if short_sym else symbol
     
@@ -778,29 +813,42 @@ async def api_poll(symbol: str, long_ex: str, short_ex: str, long_sym: Optional[
     long_is_active = (la > 0 and lb > 0)
     short_is_active = (sa > 0 and sb > 0)
 
+    # Performance latency (ms)
+    lat = int((time.perf_counter() - t0) * 1000)
+
+    all_ex = ["Ondo", "RH_Lighter", "Variational", "Extended", "Lighter", "RiseX", "Bullet", "TxFlow", "Pacifica"]
+    ex_status = {ex: get_exchange_health(ex) for ex in all_ex}
+
     return {
         "ok": True, 
-        "entry_pct": entry if can_entry else 0.0, 
-        "exit_pct": exit_ if can_exit else 0.0, 
-        "latency_ms": int((time.perf_counter() - t0) * 1000),
-        "long_funding": long_fr,
-        "short_funding": short_fr,
-        "net_funding": round(short_fr - long_fr, 4),
+        "symbol": symbol,
+        "long_ex": long_ex,
+        "short_ex": short_ex,
+        "long_sym": l_ticker,
+        "short_sym": s_ticker,
         "long_ask": la,
         "long_bid": lb,
-        "short_ask": sa,
         "short_bid": sb,
+        "short_ask": sa,
+        "entry_pct": round(entry, 4),
+        "exit_pct": round(exit_, 4),
         "long_ok": long_is_active,
-        "short_ok": short_is_active
+        "short_ok": short_is_active,
+        "long_funding": round(long_fr, 4),
+        "short_funding": round(short_fr, 4),
+        "net_funding": round(short_fr - long_fr, 4),
+        "latency_ms": lat,
+        "exchanges_status": ex_status
     }
 
 @app.get("/api/ticker_status")
 async def api_ticker_status(ex: str, tickers: str):
     res = {}
+    ex_clean = normalize_exchange_name(ex)
     tkr_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
     for t in tkr_list:
         try:
-            bid, ask = await get_price(ex, t)
+            bid, ask = await get_price(ex_clean, t)
             res[t] = (bid > 0 or ask > 0)
         except Exception:
             res[t] = False

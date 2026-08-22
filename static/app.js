@@ -1609,17 +1609,17 @@ function updateCardTickerSelectors() {
 
     // Determine default native ticker for Long exchange
     let defaultLongTkr = sym;
-    if (state.longEx === "Ondo" && sym === "SPY") defaultLongTkr = "US500";
+    if (state.longEx === "Ondo" && sym === "SPY") defaultLongTkr = "SPY";
     else if ((state.longEx === "Variational" || state.longEx === "Bullet") && sym === "SPY") defaultLongTkr = "US500";
     else if (state.longEx === "Pacifica" && sym === "SPY") defaultLongTkr = "SP500";
-    else if (state.longEx === "Variational" && sym === "QQQ") defaultLongTkr = "US100";
+    else if (state.longEx === "Bullet" && sym === "QQQ") defaultLongTkr = "US100";
 
     // Determine default native ticker for Short exchange
     let defaultShortTkr = sym;
-    if (state.shortEx === "Ondo" && sym === "SPY") defaultShortTkr = "US500";
+    if (state.shortEx === "Ondo" && sym === "SPY") defaultShortTkr = "SPY";
     else if ((state.shortEx === "Variational" || state.shortEx === "Bullet") && sym === "SPY") defaultShortTkr = "US500";
     else if (state.shortEx === "Pacifica" && sym === "SPY") defaultShortTkr = "SP500";
-    else if (state.shortEx === "Variational" && sym === "QQQ") defaultShortTkr = "US100";
+    else if (state.shortEx === "Bullet" && sym === "QQQ") defaultShortTkr = "US100";
 
     if (!state.longSymbol || !group.includes(state.longSymbol)) state.longSymbol = defaultLongTkr;
     if (!state.shortSymbol || !group.includes(state.shortSymbol)) state.shortSymbol = defaultShortTkr;
@@ -1744,26 +1744,27 @@ const EXCHANGE_ICONS = {
 
 function getExchangeTradeUrl(ex, symbol) {
     const s = (symbol || "BTC").toUpperCase();
-    if (ex === "Ondo") {
-        const ondoSym = (s === "SPY") ? "US500" : s;
-        return `https://app.ondoperps.xyz/trade/perps/${ondoSym}-USD.P`;
-    } else if (ex === "RH_Lighter") {
+    const e = ex || "";
+    if (e.includes("Ondo")) {
+        return `https://app.ondoperps.xyz/trade/perps/${s}-USD.P`;
+    } else if (e.includes("RH_Lighter") || (e.includes("RH") && e.includes("Lighter"))) {
         return `https://robinhoodchain.lighter.xyz/trade/${s}`;
-    } else if (ex === "Lighter") {
+    } else if (e.includes("Lighter")) {
         return `https://app.lighter.xyz/trade/${s}`;
-    } else if (ex === "Variational") {
-        const vSym = (s === "SPY") ? "US500" : (s === "QQQ" ? "US100" : s);
+    } else if (e.includes("Variational")) {
+        const vSym = (s === "SPY") ? "US500" : s;
         return `https://omni.variational.io/perpetual/${vSym}`;
-    } else if (ex === "Extended" || ex === "EXTENDET") {
-        return `https://app.extended.exchange/trade/${s}-USD`;
-    } else if (ex === "RiseX") {
+    } else if (e.includes("Extended") || e.includes("EXTENDET")) {
+        const extSym = (s === "SPY") ? "SPX500M" : (s === "QQQ" ? "TECH100M" : s);
+        return `https://app.extended.exchange/trade/${extSym}-USD`;
+    } else if (e.includes("Rise")) {
         return `https://www.rise.trade/en/trade/${s}`;
-    } else if (ex === "Bullet") {
-        const bSym = (s === "SPY") ? "US500" : s;
+    } else if (e.includes("Bullet")) {
+        const bSym = (s === "SPY") ? "US500" : (s === "QQQ" ? "US100" : s);
         return `https://app.bullet.xyz/trade/${bSym}-USD`;
-    } else if (ex === "TxFlow") {
+    } else if (e.includes("TxFlow")) {
         return `https://app.txflow.com/trade/${s}-USDC`;
-    } else if (ex === "Pacifica") {
+    } else if (e.includes("Pacifica")) {
         const pSym = (s === "SPY") ? "SP500" : s;
         return `https://app.pacifica.fi/trade/${pSym}`;
     }
