@@ -1416,6 +1416,7 @@ function updateUrlState() {
 window.copyShareLink = function(event) {
     if (event) event.stopPropagation();
     playTactileClick();
+    updateUrlState();
     const currentUrl = window.location.href;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(currentUrl).then(() => {
@@ -1457,11 +1458,19 @@ function renderMainTitle() {
     if (!$("mainTitle")) return;
     $("mainTitle").innerHTML = `
         <div class="chart-header-left">
-            <div class="chart-symbol-badge">
+            <div class="chart-symbol-badge" onclick="copyShareLink(event)" style="cursor:pointer;" title="Скопіювати посилання на цю зв'язку">
                 <span class="symbol-badge-text">${state.symbol}</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:8px; opacity:0.9; filter: drop-shadow(0 0 4px rgba(96,165,250,0.6));" title="Скопіювати посилання">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
             </div>
         </div>
     `;
+    const badge = $("mainTitle").querySelector(".chart-symbol-badge");
+    if (badge) {
+        badge.onmouseenter = () => playTactileClick();
+    }
 }
 
 // Single Coin Selector Drawer Modal Logic

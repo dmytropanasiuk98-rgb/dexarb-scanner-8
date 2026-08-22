@@ -744,6 +744,18 @@ button {
     border-radius: 12px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 12px rgba(55, 115, 245, 0.3);
     user-select: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chart-symbol-badge:hover {
+    transform: translateY(-1px) scale(1.03);
+    border-color: rgba(55, 115, 245, 0.8);
+    box-shadow: 0 6px 20px rgba(55, 115, 245, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.chart-symbol-badge:active {
+    transform: translateY(0) scale(0.97);
 }
 
 .symbol-badge-text {
